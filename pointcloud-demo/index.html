@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Point Cloud Embedded in a Page</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    width: 150%;
+    height: 150%;
+    overflow: hidden;
+    background: transparent;
+  }
+  #pc-container { width: 100vw; height: 100vh; }
+  #pc-container canvas { display: block; width: 100%; height: 100%; }
+  video { display: none; }
+</style>
+</head>
+<body>
+<div id="pc-container">
+  <canvas id="pc-canvas"></canvas>
+  <video id="pc-video" autoplay playsinline muted></video>
+</div>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/controls/OrbitControls.js";
+import {
+  FilesetResolver,
+  ImageSegmenter,
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1";
+
+// Everything below is scoped to #pc-container instead of `window`.
+// That's the entire difference from a full-screen version.
+
+const container = document.getElementById("pc-container");
+const canvas = document.getElementById("pc-canvas");
+const video = document.getElementById("pc-video");
+
+const COLS = 260*1.2;
+const ROWS = 190*1.2;
+const POINT_SIZE = 2.3;
+const POINT_COLOR = 0x000000;
+const POINT_COLOR_MIX = 1.0;
+const POINT_SHADE_MIN = 0.45;
+const POINT_CLOUD_Y_OFFSET = -0.12;
+const ZOOM = 1.2;
+const AUDIO_DISTORTION = 3;
+const AUDIO_THRESHOLD = 0.4;
+const GLOW_OPACITY = 0.6;
+const GLOW_BLUR_RADIUS = 3.5;
+const TASKS_VISION_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1";
+const SELFIE_MODEL_URL =
+  "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite";
+
+let renderer, scene, camera, controls, points, material, videoTexture, maskTexture;
+let maskCanvas, maskCtx, imageSegmenter, segmenting = false;
+let trailMaterials = [];
+let glowMesh;
+const previousCameraPosition = new THREE.Vector3();
+let audioContext, audioAnalyser, audioData;
+let smoothedBeat = 0;
+
+function initThree(videoAspect) {
+  const { clientWidth, clientHeight } = container;
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(clientWidth, clientHeight);
+
+  scene = new THREE.Scene();
+  scene.background = null;
+
+  camera = new THREE.PerspectiveCamera(50, clientWidth / clientHeight, 0.05, 50);
+  camera.position.set(0, 0, 2.4);
+  previousCameraPosition.copy(camera.position);
+
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.minPolarAngle = Math.PI / 2;
+  controls.maxPolarAngle = Math.PI / 2;
+  controls.enabled = false;
+
+  videoTexture = new THREE.VideoTexture(video);
+  videoTexture.minFilter = THREE.LinearFilter;
+  videoTexture.magFilter = THREE.LinearFilter;
+  videoTexture.generateMipmaps = false;
+
+  maskCanvas = document.createElement("canvas");
+  maskCanvas.width = 2;
+  maskCanvas.height = 2;
+  maskCtx = maskCanvas.getContext("2d", { willReadFrequently: true });
+  maskCtx.fillStyle = "black";
+  maskCtx.fillRect(0, 0, 2, 2);
+  maskTexture = new THREE.CanvasTexture(maskCanvas);
+  maskTexture.minFilter = THREE.LinearFilter;
+  maskTexture.magFilter = THREE.LinearFilter;
+  maskTexture.generateMipmaps = false;
+
+  material = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    uniforms: {
+      uVideoTex: { value: videoTexture },
+      uMaskTex: { value: maskTexture },
+      uColorTint: { value: new THREE.Color(POINT_COLOR) },
+      uColorMix: { value: POINT_COLOR_MIX },
+      uShadeMin: { value: POINT_SHADE_MIN },
+      uDepthScale: { value: 0.5 },
+      uPointSize: { value: POINT_SIZE },
+      uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
+      uMaskThreshold: { value: 0.35 },
+      uTime: { value: 0 },
+      uTrailDelay: { value: 0 },
+      uTrailOpacity: { value: 1 },
+      uMotion: { value: new THREE.Vector2() },
+      uAudioBeat: { value: 0 },
+      uMaskTexel: { value: new THREE.Vector2(0.5, 0.5) },
+    },
+    vertexShader: `
+      uniform sampler2D uVideoTex;
+      uniform sampler2D uMaskTex;
+      uniform vec3 uColorTint;
+      uniform float uColorMix;
+      uniform float uShadeMin;
+      uniform float uDepthScale;
+      uniform float uPointSize;
+      uniform float uPixelRatio;
+      uniform float uMaskThreshold;
+      uniform float uTime;
+      uniform float uTrailDelay;
+      uniform vec2 uMotion;
+      uniform float uAudioBeat;
+      uniform vec2 uMaskTexel;
+      out vec3 vColor;
+      out float vMask;
+      void main() {
+        vec4 videoColor = texture(uVideoTex, uv);
+        float mask = texture(uMaskTex, uv).r;
+        float edge = 0.0;
+        edge = max(edge, abs(mask - texture(uMaskTex, uv + vec2(uMaskTexel.x, 0.0)).r));
+        edge = max(edge, abs(mask - texture(uMaskTex, uv - vec2(uMaskTexel.x, 0.0)).r));
+        edge = max(edge, abs(mask - texture(uMaskTex, uv + vec2(0.0, uMaskTexel.y)).r));
+        edge = max(edge, abs(mask - texture(uMaskTex, uv - vec2(0.0, uMaskTexel.y)).r));
+        float edgeFactor = smoothstep(0.015, 0.12, edge);
+        float luminance = dot(videoColor.rgb, vec3(0.299, 0.587, 0.114));
+        vec3 pos = position;
+        pos.z += (luminance - 0.5) * uDepthScale;
+        float seed = uv.x * 127.1 + uv.y * 311.7;
+        float drift = uTrailDelay * length(uMotion);
+        float phase = seed + uTime * (2.0 + uTrailDelay * 0.18);
+        pos.x += uMotion.x * uTrailDelay * 6.5;
+        pos.y += uMotion.y * uTrailDelay * 6.5;
+        pos.z += sin(phase) * drift * 1.2;
+        pos.x += sin(phase) * drift * 0.9;
+        pos.y += cos(phase * 0.8) * drift * 0.9;
+        pos.z += sin(phase * 1.7) * uAudioBeat * 0.55 * edgeFactor;
+        pos.x += cos(phase * 0.7) * uAudioBeat * 0.2 * edgeFactor;
+        pos.y += sin(phase * 0.9) * uAudioBeat * 0.2 * edgeFactor;
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = uPointSize * uPixelRatio * (4.0 / -mvPosition.z) * (1.0 + uTrailDelay * 0.035 + uAudioBeat * 0.22 * edgeFactor);
+        vec3 baseColor = mix(videoColor.rgb, uColorTint, uColorMix);
+        float shade = uShadeMin + luminance * (1.0 - uShadeMin);
+        vColor = baseColor * shade * (1.0 + uTrailDelay * 0.035);
+        vMask = mask;
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      in vec3 vColor;
+      in float vMask;
+      uniform float uTrailOpacity;
+      out vec4 fragColor;
+      void main() {
+        float edgeAlpha = smoothstep(0.12, 0.38, vMask);
+        if (edgeAlpha <= 0.0) discard;
+        vec2 c = gl_PointCoord - vec2(0.5);
+        if (dot(c, c) > 0.25) discard;
+        fragColor = vec4(vColor, uTrailOpacity * edgeAlpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+  });
+
+  buildPoints(videoAspect);
+
+  // Watch the CONTAINER, not the window — the box can resize from page
+  // layout (a sidebar toggling, a breakpoint) with no window resize at all.
+  new ResizeObserver(onContainerResize).observe(container);
+
+  requestAnimationFrame(animate);
+}
+
+function buildGlowMesh(planeWidth, planeHeight) {
+  // A single quad, sized to match the video frame, that blurs the live
+  // segmentation mask itself. Because it reads the real silhouette (just
+  // softened), the glow hugs the person's actual outline instead of being
+  // a generic circle/square floating behind them.
+  const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+  const material = new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    uniforms: {
+      uMaskTex: { value: maskTexture },
+      uMaskTexel: { value: new THREE.Vector2(0.5, 0.5) },
+      uOpacity: { value: GLOW_OPACITY },
+      uBlurRadius: { value: GLOW_BLUR_RADIUS },
+    },
+    vertexShader: `
+      out vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      in vec2 vUv;
+      uniform sampler2D uMaskTex;
+      uniform vec2 uMaskTexel;
+      uniform float uOpacity;
+      uniform float uBlurRadius;
+      out vec4 fragColor;
+      void main() {
+        // Match the same horizontal flip the point cloud's own uv attribute
+        // uses, so this plane lines up with the person exactly.
+        vec2 maskUv = vec2(1.0 - vUv.x, vUv.y);
+        float sum = 0.0;
+        float weightSum = 0.0;
+        const int R = 4;
+        for (int dx = -R; dx <= R; dx++) {
+          for (int dy = -R; dy <= R; dy++) {
+            vec2 offset = vec2(float(dx), float(dy));
+            float w = max(0.0, 1.0 - length(offset) / float(R + 1));
+            sum += texture(uMaskTex, maskUv + offset * uMaskTexel * uBlurRadius).r * w;
+            weightSum += w;
+          }
+        }
+        float mask = sum / weightSum;
+        float alpha = mask * uOpacity;
+        if (alpha < 0.003) discard;
+        fragColor = vec4(1.0, 1.0, 1.0, alpha);
+      }
+    `,
+  });
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.z = -0.08;
+  mesh.renderOrder = -1;
+  return mesh;
+}
+
+function buildPoints(videoAspect) {
+  const count = COLS * ROWS;
+  const positions = new Float32Array(count * 3);
+  const uvs = new Float32Array(count * 2);
+  const worldHeight = 2.0;
+  const worldWidth = worldHeight * videoAspect;
+
+  let idx = 0;
+  for (let j = 0; j < ROWS; j++) {
+    for (let i = 0; i < COLS; i++) {
+      const u = i / (COLS - 1);
+      const v = j / (ROWS - 1);
+      positions[idx * 3 + 0] = (u - 0.5) * worldWidth;
+      positions[idx * 3 + 1] = (0.5 - v) * worldHeight;
+      positions[idx * 3 + 2] = 0;
+      uvs[idx * 2 + 0] = 1 - u;
+      uvs[idx * 2 + 1] = 1 - v;
+      idx++;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  points = new THREE.Group();
+  glowMesh = buildGlowMesh(worldWidth, worldHeight);
+  points.add(glowMesh);
+  trailMaterials = [material];
+  for (let i = 0; i < 9; i++) {
+    const layerMaterial = i === 0 ? material : material.clone();
+    layerMaterial.uniforms.uTrailDelay.value = i * 1.15;
+    layerMaterial.uniforms.uTrailOpacity.value = i === 0 ? 1 : 0.24 / i;
+    trailMaterials[i] = layerMaterial;
+    points.add(new THREE.Points(geometry, layerMaterial));
+  }
+  points.position.y = POINT_CLOUD_Y_OFFSET;
+  points.scale.setScalar(ZOOM);
+  scene.add(points);
+}
+
+function onContainerResize() {
+  const { clientWidth, clientHeight } = container;
+  if (!clientWidth || !clientHeight) return;
+  renderer.setSize(clientWidth, clientHeight);
+  camera.aspect = clientWidth / clientHeight;
+  camera.updateProjectionMatrix();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (video.readyState >= 2) {
+    videoTexture.needsUpdate = true;
+    trySegment(performance.now());
+  }
+  controls.update();
+  for (const trailMaterial of trailMaterials) {
+    trailMaterial.uniforms.uTime.value += 0.016;
+  }
+  const motionX = camera.position.x - previousCameraPosition.x;
+  const motionY = camera.position.y - previousCameraPosition.y;
+  previousCameraPosition.copy(camera.position);
+  const motion = trailMaterials[0].uniforms.uMotion.value;
+  motion.x = motion.x * 0.94 + motionX * 0.06;
+  motion.y = motion.y * 0.94 + motionY * 0.06;
+  for (const trailMaterial of trailMaterials) {
+    trailMaterial.uniforms.uMotion.value.copy(motion);
+  }
+  updateAudioBeat();
+  renderer.render(scene, camera);
+}
+
+function initAudio(stream) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass || !stream.getAudioTracks().length) return;
+  audioContext = new AudioContextClass();
+  audioAnalyser = audioContext.createAnalyser();
+  audioAnalyser.fftSize = 256;
+  audioAnalyser.smoothingTimeConstant = 0.84;
+  audioData = new Uint8Array(audioAnalyser.frequencyBinCount);
+  audioContext.createMediaStreamSource(stream).connect(audioAnalyser);
+}
+
+function updateAudioBeat() {
+  if (!audioAnalyser || !audioData || !trailMaterials.length) return;
+  audioAnalyser.getByteFrequencyData(audioData);
+  const bassBins = Math.max(1, Math.floor(audioData.length * 0.12));
+  let bass = 0;
+  for (let i = 0; i < bassBins; i++) bass += audioData[i];
+  bass /= bassBins * 255;
+  bass = Math.max(0, (bass - AUDIO_THRESHOLD) / (1 - AUDIO_THRESHOLD));
+  smoothedBeat += (bass - smoothedBeat) * 0.09;
+  const beat = Math.min(1, smoothedBeat * AUDIO_DISTORTION);
+  for (const trailMaterial of trailMaterials) {
+    trailMaterial.uniforms.uAudioBeat.value = beat;
+  }
+}
+
+async function initSegmenter() {
+  const vision = await FilesetResolver.forVisionTasks(`${TASKS_VISION_CDN}/wasm`);
+  imageSegmenter = await ImageSegmenter.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: SELFIE_MODEL_URL, delegate: "GPU" },
+    runningMode: "VIDEO",
+    outputCategoryMask: false,
+    outputConfidenceMasks: true,
+  });
+}
+
+function trySegment(nowMs) {
+  if (!imageSegmenter || segmenting) return;
+  segmenting = true;
+  try {
+    imageSegmenter.segmentForVideo(video, nowMs, (result) => {
+      const mask = result.confidenceMasks && result.confidenceMasks[0];
+      if (mask) {
+        const width = mask.width;
+        const height = mask.height;
+        const data = mask.getAsFloat32Array();
+        if (maskCanvas.width !== width || maskCanvas.height !== height) {
+          maskCanvas.width = width;
+          maskCanvas.height = height;
+          for (const trailMaterial of trailMaterials) {
+            trailMaterial.uniforms.uMaskTexel.value.set(1 / width, 1 / height);
+          }
+          glowMesh.material.uniforms.uMaskTexel.value.set(1 / width, 1 / height);
+        }
+        const imageData = maskCtx.createImageData(width, height);
+        for (let i = 0; i < data.length; i++) {
+          const value = Math.max(0, Math.min(255, Math.round(data[i] * 255)));
+          const offset = i * 4;
+          imageData.data[offset] = value;
+          imageData.data[offset + 1] = value;
+          imageData.data[offset + 2] = value;
+          imageData.data[offset + 3] = 255;
+        }
+        maskCtx.putImageData(imageData, 0, 0);
+        maskTexture.needsUpdate = true;
+        if (typeof mask.close === "function") mask.close();
+      }
+      segmenting = false;
+    });
+  } catch (err) {
+    console.error("Segmentation failed", err);
+    segmenting = false;
+  }
+}
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 640, height: 480 },
+    });
+    video.srcObject = stream;
+    await video.play();
+    await new Promise((resolve) => {
+      if (video.readyState >= 2) return resolve();
+      video.onloadeddata = resolve;
+    });
+    await initSegmenter();
+    initThree(video.videoWidth / video.videoHeight || 16 / 9);
+    try {
+      const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      initAudio(audioStream);
+    } catch (audioError) {
+      console.warn("Microphone unavailable; visual will run without audio reactivity.", audioError);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+startCamera();
+</script>
+</body>
+</html>

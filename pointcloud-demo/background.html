@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Media Point Cloud</title>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js"
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #fff; }
+  #scene { display: block; width: 100vw; height: 100vh; }
+  #media { display: none; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<img id="media" alt="" />
+<video id="media-video" autoplay loop muted playsinline></video>
+
+<script type="module">
+import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.186.0/build/three.module.js";
+import { OrbitControls } from "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/controls/OrbitControls.js";
+import { PLYLoader } from "https://cdn.jsdelivr.net/npm/three@0.186.0/examples/jsm/loaders/PLYLoader.js";
+
+// Change these two values to use another local image or video.
+const MEDIA_URL = "./mountains.jpeg";
+const MEDIA_KIND = "image"; // "image", "video", or "ply"
+const PLY_URL = "./11.9.2026.ply";
+
+const COLS = 510;
+const ROWS = 370;
+const POINT_SIZE = 1.8;
+const IMAGE_CONTRAST = 2.2;
+const SPHERE_RADIUS = 0.9;
+const DEPTH_SCALE = 1.5;
+const TRAIL_LAYERS = 9;
+const TRAIL_SPREAD = 6.5;
+const AUDIO_DISTORTION = 0.3;
+const AUDIO_THRESHOLD = 0.18;
+const BEAT_ORBIT_STRENGTH = 1.4;
+
+const canvas = document.getElementById("scene");
+const image = document.getElementById("media");
+const video = document.getElementById("media-video");
+let media, mediaTexture, renderer, scene, camera, controls;
+let plyPoints;
+let materials = [];
+let previousCameraPosition;
+let audioAnalyser, audioData, smoothedBeat = 0;
+let previousBeat = 0;
+let orbitDirection = 1;
+let orbitSpeed = 0.25;
+
+function createMedia() {
+  if (MEDIA_KIND === "ply") return Promise.resolve();
+  if (MEDIA_KIND === "video") {
+    media = video;
+    media.src = MEDIA_URL;
+    return new Promise((resolve, reject) => {
+      video.addEventListener("loadeddata", resolve, { once: true });
+      video.addEventListener("error", reject, { once: true });
+    });
+  }
+
+  media = image;
+  image.src = MEDIA_URL;
+  return new Promise((resolve, reject) => {
+    image.addEventListener("load", resolve, { once: true });
+    image.addEventListener("error", reject, { once: true });
+  });
+}
+
+function loadPly() {
+  return new Promise((resolve, reject) => {
+    new PLYLoader().load(PLY_URL, (geometry) => {
+      console.info("PLY loaded", geometry.attributes.position?.count || 0, "points");
+      geometry.computeBoundingBox();
+      geometry.center();
+      geometry.computeBoundingBox();
+      const size = geometry.boundingBox.getSize(new THREE.Vector3());
+      const maxDimension = Math.max(size.x, size.y, size.z, 0.001);
+      geometry.scale(1.7 / maxDimension, 1.7 / maxDimension, 1.7 / maxDimension);
+      const hasColors = geometry.hasAttribute("color");
+      const material = new THREE.PointsMaterial({
+        size: 0.018,
+        sizeAttenuation: true,
+        color: hasColors ? 0xffffff : 0x9f1239,
+        vertexColors: hasColors,
+      });
+      plyPoints = new THREE.Points(geometry, material);
+      scene.add(plyPoints);
+      resolve();
+    }, (progress) => {
+      if (progress.total) console.info(`Loading PLY: ${Math.round(progress.loaded / progress.total * 100)}%`);
+    }, (error) => {
+      console.error("PLY load failed", error);
+      reject(error);
+    });
+  });
+}
+
+function initAudio() {
+  navigator.mediaDevices?.getUserMedia({ audio: true }).then((stream) => {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioContext = new AudioContextClass();
+    audioAnalyser = audioContext.createAnalyser();
+    audioAnalyser.fftSize = 256;
+    audioAnalyser.smoothingTimeConstant = 0.84;
+    audioData = new Uint8Array(audioAnalyser.frequencyBinCount);
+    audioContext.createMediaStreamSource(stream).connect(audioAnalyser);
+  }).catch(() => {
+    // Audio is optional; the media point cloud still runs without it.
+  });
+}
+
+function updateAudio() {
+  if (!audioAnalyser || !audioData) return 0;
+  audioAnalyser.getByteFrequencyData(audioData);
+  const bassBins = Math.max(1, Math.floor(audioData.length * 0.12));
+  let bass = 0;
+  for (let i = 0; i < bassBins; i++) bass += audioData[i];
+  bass /= bassBins * 255;
+  bass = Math.max(0, (bass - AUDIO_THRESHOLD) / (1 - AUDIO_THRESHOLD));
+  smoothedBeat += (bass - smoothedBeat) * 0.09;
+  return Math.min(1, smoothedBeat * AUDIO_DISTORTION);
+}
+
+function buildMaterial(texture, delay, opacity) {
+  return new THREE.ShaderMaterial({
+    glslVersion: THREE.GLSL3,
+    transparent: true,
+    depthWrite: false,
+    uniforms: {
+      uMediaTex: { value: texture },
+      uTime: { value: 0 },
+      uDelay: { value: delay },
+      uOpacity: { value: opacity },
+      uMotion: { value: new THREE.Vector3() },
+      uAudioBeat: { value: 0 },
+    },
+    vertexShader: `
+      uniform sampler2D uMediaTex;
+      uniform float uTime;
+      uniform float uDelay;
+      uniform float uAudioBeat;
+      uniform vec3 uMotion;
+      out vec3 vColor;
+      void main() {
+        vec3 color = texture(uMediaTex, uv).rgb;
+        color = clamp((color - 0.5) * ${IMAGE_CONTRAST.toFixed(1)} + 0.5, 0.0, 1.0);
+        float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+        float seed = uv.x * 127.1 + uv.y * 311.7;
+        float phase = seed + uTime * (2.0 + uDelay * 0.18);
+        vec3 pos = position;
+        pos.z += (luminance - 0.5) * ${DEPTH_SCALE.toFixed(1)};
+        pos.x += uMotion.x * uDelay * ${TRAIL_SPREAD.toFixed(1)};
+        pos.y += uMotion.y * uDelay * ${TRAIL_SPREAD.toFixed(1)};
+        pos.z += sin(phase) * uDelay * length(uMotion) * 1.2;
+        pos.x += sin(phase) * uDelay * length(uMotion) * 0.9;
+        pos.y += cos(phase * 0.8) * uDelay * length(uMotion) * 0.9;
+        pos.z += sin(phase * 1.7) * uAudioBeat * 0.18;
+        pos.x += cos(phase * 0.7) * uAudioBeat * 0.07;
+        pos.y += sin(phase * 0.9) * uAudioBeat * 0.07;
+        vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+        gl_Position = projectionMatrix * mvPosition;
+        gl_PointSize = ${POINT_SIZE.toFixed(1)} * (4.0 / -mvPosition.z) * (1.0 + uDelay * 0.035 + uAudioBeat * 0.08);
+        vColor = color;
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      uniform float uOpacity;
+      in vec3 vColor;
+      out vec4 fragColor;
+      void main() {
+        vec2 point = gl_PointCoord - vec2(0.5);
+        if (dot(point, point) > 0.25) discard;
+        fragColor = vec4(vColor, uOpacity);
+      }
+    `,
+  });
+}
+
+function buildPoints(texture, aspect) {
+  const positions = new Float32Array(COLS * ROWS * 3);
+  const uvs = new Float32Array(COLS * ROWS * 2);
+  let index = 0;
+
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      const u = col / (COLS - 1);
+      const v = row / (ROWS - 1);
+      const longitude = (u - 0.5) * Math.PI * 2;
+      const latitude = (v - 0.5) * Math.PI;
+      const sinLatitude = Math.cos(latitude);
+      positions[index * 3] = SPHERE_RADIUS * sinLatitude * Math.sin(longitude);
+      positions[index * 3 + 1] = SPHERE_RADIUS * Math.sin(latitude);
+      positions[index * 3 + 2] = SPHERE_RADIUS * sinLatitude * Math.cos(longitude);
+      uvs[index * 2] = u;
+      uvs[index * 2 + 1] = 1.0 - v;
+      index++;
+    }
+  }
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+  const group = new THREE.Group();
+  for (let i = 0; i < TRAIL_LAYERS; i++) {
+    const material = buildMaterial(texture, i * 1.15, i === 0 ? 1 : 0.24 / i);
+    materials.push(material);
+    group.add(new THREE.Points(geometry, material));
+  }
+  scene.add(group);
+}
+
+function resize() {
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  renderer.setSize(width, height);
+  camera.aspect = width / height;
+  camera.updateProjectionMatrix();
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  const beat = updateAudio();
+  if (beat > previousBeat + 0.05) {
+    orbitDirection = Math.random() < 0.5 ? -1 : 1;
+  }
+  orbitSpeed += (0.25 + beat * BEAT_ORBIT_STRENGTH - orbitSpeed) * 0.08;
+  controls.autoRotateSpeed = orbitDirection * orbitSpeed;
+  controls.update();
+  previousBeat = beat;
+  const motion = new THREE.Vector3(
+    camera.position.x - previousCameraPosition.x,
+    camera.position.y - previousCameraPosition.y,
+    camera.position.z - previousCameraPosition.z
+  );
+  previousCameraPosition.copy(camera.position);
+
+  for (const material of materials) {
+    material.uniforms.uTime.value += 0.016;
+    material.uniforms.uMotion.value.copy(motion);
+    material.uniforms.uAudioBeat.value = beat;
+  }
+  if (plyPoints) {
+    plyPoints.material.size = 0.012 * (1 + beat * 0.12);
+  }
+  if (MEDIA_KIND === "video") mediaTexture.needsUpdate = true;
+  renderer.render(scene, camera);
+}
+
+async function start() {
+  await createMedia();
+  if (MEDIA_KIND === "ply") {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setClearColor(0xffffff, 1);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 50);
+    camera.position.set(0, 0, 2.1);
+    previousCameraPosition = camera.position.clone();
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = orbitSpeed;
+    await loadPly();
+    window.addEventListener("resize", resize);
+    initAudio();
+    animate();
+    return;
+  }
+  const aspect = (media.videoWidth || media.naturalWidth) / (media.videoHeight || media.naturalHeight);
+  mediaTexture = MEDIA_KIND === "video" ? new THREE.VideoTexture(media) : new THREE.Texture(media);
+  mediaTexture.needsUpdate = true;
+  mediaTexture.minFilter = THREE.LinearFilter;
+  mediaTexture.magFilter = THREE.LinearFilter;
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setClearColor(0xffffff, 1);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.05, 50);
+  camera.position.set(0, 0, 2.1);
+  previousCameraPosition = camera.position.clone();
+  controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.autoRotate = true;
+  controls.autoRotateSpeed = orbitSpeed;
+  buildPoints(mediaTexture, aspect || 16 / 9);
+  window.addEventListener("resize", resize);
+  initAudio();
+  animate();
+}
+
+start().catch(console.error);
+</script>
+</body>
+</html>
