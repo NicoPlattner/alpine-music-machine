@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { useDeviceStore } from '../../device/deviceStore'
-import { LeoAudioController, LeoMicrophoneAudioController, type LeoAudioDriver, type LeoAudioSignal } from './leoAudio'
+import { LeoMicrophoneAudioController, type LeoAudioDriver, type LeoAudioSignal } from './leoAudio'
 import { LeoBackgroundLayer } from './LeoBackgroundLayer'
 import { LeoPerformerLayer, type LeoPerformerDiagnostics } from './LeoPerformerLayer'
 
@@ -9,47 +9,18 @@ interface Props {
   source: HTMLCanvasElement | null
   maskSource: HTMLCanvasElement | null
   onDiagnosticsChange: (diagnostics: LeoPerformerDiagnostics) => void
-  onPlaybackTime?: (time: number) => void
 }
 
-export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChange, onPlaybackTime }: Props) {
+export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChange }: Props) {
   const microphoneDeviceId = useDeviceStore((state) => state.microphoneDeviceId)
   const microphoneEnabled = useDeviceStore((state) => state.microphoneEnabled)
-  const controllerRef = useRef<LeoAudioController | null>(null)
   const musicSignalRef = useRef<LeoAudioSignal>({ beat: 0, level: 0 })
   const microphoneSignalRef = useRef<LeoAudioSignal>({ beat: 0, level: 0 })
   const microphoneControllerRef = useRef<LeoMicrophoneAudioController | null>(null)
   const driverRef = useRef<LeoAudioDriver>({
     signal: musicSignalRef.current,
-    update: () => controllerRef.current?.update(),
+    update: () => {},
   })
-  const [audioBlocked, setAudioBlocked] = useState(false)
-
-  const startAudio = useCallback(async () => {
-    try {
-      await controllerRef.current?.play()
-      setAudioBlocked(false)
-    } catch {
-      setAudioBlocked(true)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!enabled) return
-    try {
-      const controller = new LeoAudioController(musicSignalRef.current, onPlaybackTime)
-      controllerRef.current = controller
-      void startAudio()
-      return () => {
-        controller.dispose()
-        controllerRef.current = null
-        musicSignalRef.current.beat = 0
-        musicSignalRef.current.level = 0
-      }
-    } catch {
-      setAudioBlocked(false)
-    }
-  }, [enabled, onPlaybackTime, startAudio])
 
   useEffect(() => {
     if (!enabled || !microphoneEnabled) return
@@ -97,7 +68,6 @@ export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChang
     <>
       <LeoBackgroundLayer audio={driverRef.current} />
       <LeoPerformerLayer enabled source={source} maskSource={maskSource} audioSignal={microphoneSignalRef.current} onDiagnosticsChange={onDiagnosticsChange} />
-      {audioBlocked && <button type="button" className="leo-audio-start" onClick={startAudio}>▶ Play music</button>}
     </>
   )
 }

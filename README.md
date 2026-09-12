@@ -11,6 +11,23 @@ npm run dev
 
 Run the type check and production build with `npm run build`.
 
+Copy `.env.example` to `.env.local` when the audio backend is hosted somewhere
+other than the development default. `VITE_API_BASE_URL` defaults to
+`http://localhost:8000`; keep the URL in environment configuration rather than
+embedding it in components. The optional movement-to-tempo backend bridge stays
+off unless `VITE_ENABLE_MOVEMENT_SPEED_BACKEND=true` is set.
+
+The FastAPI service allows the standard Vite development origins by default.
+For another frontend origin, set the backend's comma-separated `CORS_ORIGINS`
+environment variable and rebuild/restart that service.
+
+Karaoke timing consumes the shared backend-derived playback position; it does
+not run its own timer. Until real timed lyrics are available, production shows
+a neutral empty state. Developers can opt into a two-line nonsense fixture with
+`VITE_ENABLE_DEV_KARAOKE_FIXTURE=true`. Pitch input is analysis-only and is not
+routed to speakers. Pitch-based scoring still requires Nico's timed lyrics and
+reference vocal melody/pitch data.
+
 ## Architecture
 
 - `src/app` — application shell and routes
