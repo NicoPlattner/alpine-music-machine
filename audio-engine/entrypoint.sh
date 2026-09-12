@@ -17,8 +17,9 @@ jack_pid=$!
 
 sclang_pid=""
 ffmpeg_pid=""
+soundfont_pid=""
 cleanup() {
-    for child in "$ffmpeg_pid" "$sclang_pid" "$jack_pid"; do
+    for child in "$ffmpeg_pid" "$sclang_pid" "$soundfont_pid" "$jack_pid"; do
         if [ -n "$child" ]; then kill "$child" 2>/dev/null || true; fi
     done
 }
@@ -31,6 +32,21 @@ for _ in $(seq 1 50); do
 done
 jack_lsp >/dev/null 2>&1 || { echo 'JACK failed to start' >&2; exit 1; }
 
+# FluidSynth turns the Pbind note messages into sampled General MIDI audio.
+# --no-midi-in is intentional: a tiny local OSC bridge writes to its shell.
+python3 -u /engine/soundfont_bridge.py | fluidsynth --no-midi-in \
+    -a jack -r 48000 -g 0.8 \
+    -o synth.reverb.active=0 -o synth.chorus.active=0 \
+    /usr/share/sounds/sf2/FluidR3_GM.sf2 &
+soundfont_pid=$!
+
+for _ in $(seq 1 100); do
+    jack_lsp 2>/dev/null | grep -q '^fluidsynth:left$' && break
+    kill -0 "$soundfont_pid" || exit 1
+    sleep 0.1
+done
+jack_lsp 2>/dev/null | grep -q '^fluidsynth:left$' || { echo 'FluidSynth failed to become ready' >&2; exit 1; }
+
 sclang -D -r -u 57120 /engine/engine.scd &
 sclang_pid=$!
 
@@ -40,6 +56,9 @@ for _ in $(seq 1 600); do
     sleep 0.1
 done
 test -f /tmp/mixer-ready || { echo 'Mixer failed to become ready' >&2; exit 1; }
+
+jack_connect fluidsynth:left SuperCollider:in_1
+jack_connect fluidsynth:right SuperCollider:in_2
 
 ffmpeg -hide_banner -loglevel warning \
     -use_wallclock_as_timestamps 1 -f jack -ac 2 -i live-mixer \
@@ -56,4 +75,4 @@ for _ in $(seq 1 50); do
     sleep 0.1
 done
 
-wait -n "$ffmpeg_pid" "$sclang_pid" "$jack_pid"
+wait -n "$ffmpeg_pid" "$sclang_pid" "$soundfont_pid" "$jack_pid"

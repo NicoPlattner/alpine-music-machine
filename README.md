@@ -52,8 +52,8 @@ docker compose up --build
 ```
 
 Open <http://localhost:8080> and press Play. Pop is the default: all 15
-source MIDI parts play with their original instrument families and no added
-master effects. The empty MIDI count-in is trimmed. This is an instrumental
+source MIDI parts play with their exact embedded General MIDI programs and no
+added master effects. The empty MIDI count-in is trimmed. This is an instrumental
 MIDI rendition, without recorded singing.
 Choose a genre to select the MIDI tracks that
 should play and the synth family they use; adjust individual track levels in the
@@ -65,16 +65,16 @@ At container startup, `audio-engine/prepare_midi.py` parses
 `tracks/never-gonna-give-you-up/Never-Gonna-Give-You-Up-1.mid` without an
 external MIDI dependency and writes a compact SuperCollider data file. The
 engine creates one `Pbind` for every MIDI track and combines enabled patterns in
-a `Ppar`. MIDI note onsets, overlapping notes and lengths are retained. Synths
-are placed in a dedicated group before the persistent master effects synth.
+a `Ppar`. MIDI note onsets, overlapping notes and lengths are retained. The
+patterns send their events to FluidSynth, which uses the packaged FluidR3 GM
+SoundFont; its stereo output passes through the persistent master effects synth.
 
 There are four presets: Pop, Ballad, Rock, and Techno. Ballad, Rock and Techno
 choose which source parts play and which SuperCollider voice renders each one.
 The note data is never transposed by a preset.
 
 See [the genre instrumentation table](audio-engine/ARRANGEMENTS.md) for each
-track's assignment. Each instrument has its own synth graph and envelope; one
-genre can use many different instruments.
+track's sampled General MIDI assignment.
 
 The tempo slider changes the shared `TempoClock`. That changes scheduling speed,
 not MIDI note numbers, so no pitch correction or Rubber Band time stretching is

@@ -36,6 +36,19 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(tracks["track-2"]["voice_name"], "Cello")
         self.send.assert_any_call("/midi/state", unittest.mock.ANY)
 
+    def test_rock_and_techno_replace_synth_parts_with_suitable_instruments(self):
+        rock = {track["id"]: track for track in asyncio.run(main.apply_genre("rock"))["tracks"]}
+        self.assertEqual(rock["track-1"]["voice_name"], "Drawbar organ")
+        self.assertEqual(rock["track-2"]["voice_name"], "Picked electric bass")
+        self.assertEqual(rock["track-3"]["voice_name"], "Overdriven guitar")
+        self.assertEqual(rock["track-8"]["voice_name"], "Overdriven guitar")
+        self.assertEqual(rock["track-9"]["voice_name"], "Alto sax")
+
+        techno = {track["id"]: track for track in asyncio.run(main.apply_genre("techno"))["tracks"]}
+        self.assertEqual(techno["track-2"]["voice_name"], "Synth bass 1")
+        self.assertEqual(techno["track-4"]["voice_name"], "Saw wave")
+        self.assertEqual(techno["track-8"]["voice_name"], "Saw wave")
+
     def test_manual_track_change_marks_arrangement_custom(self):
         asyncio.run(main.apply_genre("pop"))
         result = asyncio.run(main.set_track("track-3", main.TrackChange(active=True, gain=.5)))
@@ -54,13 +67,20 @@ class TransportTests(unittest.TestCase):
             active = [t for t in result['tracks'] if t['active']]
             self.assertGreater(len({t['voice'] for t in active}), 1)
             for track in active:
-                self.assertLess(track['voice'], len(main.VOICE_NAMES))
+                self.assertGreaterEqual(track['voice'], 0)
+                self.assertLess(track['voice'], 128)
 
-    def test_pop_preserves_every_source_track_and_voice(self):
+    def test_pop_preserves_every_source_track_and_program(self):
         result = asyncio.run(main.apply_genre("pop"))
         self.assertEqual(result["genre"], "pop")
         self.assertTrue(all(track["active"] for track in result["tracks"]))
-        self.assertEqual([track["voice"] for track in result["tracks"]], main.DEFAULT_VOICES)
+        self.assertEqual([track["voice"] for track in result["tracks"]], main.SOURCE_PROGRAMS)
+        self.assertTrue(all(track["gain"] == 1.0 for track in result["tracks"]))
+        tracks = {track["id"]: track for track in result["tracks"]}
+        self.assertEqual(tracks["track-2"]["voice_name"], "Synth bass 2")
+        self.assertEqual(tracks["track-4"]["voice_name"], "Flute")
+        self.assertEqual(tracks["track-6"]["voice_name"], "Synth drum")
+        self.assertEqual(tracks["track-8"]["voice_name"], "Saw wave")
         self.send.assert_any_call("/mixer/style", [0, 0])
 
     def test_word_timed_lyrics_are_loaded_from_the_mounted_song(self):

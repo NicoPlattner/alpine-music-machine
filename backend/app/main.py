@@ -30,31 +30,42 @@ TRACKS = (
     ("track-13", "Brass 1"), ("track-14", "Whistle"), ("track-15", "Muted Guitar"),
 )
 TRACK_NAMES = dict(TRACKS)
-VOICE_NAMES = ("Piano", "Electric guitar", "Synth bass", "Synth lead", "Electric piano", "Strings", "Organ", "Distorted guitar", "Brass", "Flute / whistle")
-DEFAULT_VOICES = [4, 2, 1, 3, 9, 3, 3, 3, 8, 0, 5, 8, 8, 9, 1]
-VOICE_NAMES += ("Violin", "Cello", "Upright bass", "Harp", "Clarinet", "French horn", "Vibraphone", "Picked bass", "Sub bass", "Saxophone")
+# General MIDI program numbers are zero-based. These are read directly from the
+# source file and are the authoritative, unmodified Pop instrumentation.
+SOURCE_PROGRAMS = [5, 39, 27, 73, 72, 118, 118, 81, 64, 0, 48, 56, 61, 78, 28]
+GM_NAMES = {
+    0: "Acoustic grand piano", 5: "Electric piano 2", 16: "Drawbar organ",
+    25: "Steel-string guitar", 27: "Clean electric guitar", 28: "Muted guitar",
+    29: "Overdriven guitar", 30: "Distorted guitar", 32: "Acoustic bass",
+    34: "Picked electric bass", 38: "Synth bass 1", 39: "Synth bass 2",
+    40: "Violin", 42: "Cello", 46: "Orchestral harp", 48: "String ensemble",
+    56: "Trumpet", 60: "French horn", 61: "Brass section", 64: "Soprano sax",
+    65: "Alto sax", 71: "Clarinet", 72: "Piccolo", 73: "Flute",
+    78: "Whistle", 81: "Saw wave", 88: "Fantasia pad", 89: "Warm pad",
+    118: "Synth drum",
+}
+DRUM_KIT_NAMES = {0: "Standard kit", 8: "Room kit", 16: "Power kit",
+                  24: "Electronic kit", 25: "TR-808 kit", 32: "Jazz kit",
+                  40: "Brush kit", 48: "Orchestral percussion"}
 
 # Columns follow TRACKS: keys, bass, guitar, melody, piccolo, two fills,
 # synth accents, sax, kit, strings, trumpet, brass, whistle, muted guitar.
 # None means omit this part. Instrument choice and inclusion are independent.
 ARRANGEMENTS = {
-    # Pop is the unmodified source arrangement: all MIDI tracks and their
-    # closest original instrument families remain audible, with no master FX.
-    "pop": DEFAULT_VOICES,
-    "ballad": [0, 11, 13, 10, 9, None, None, 4, 14, 4, 10, 15, 15, 9, 13],
-    "rock": [0, 17, 1, 1, None, None, None, 1, None, 1, 6, 8, 8, None, 1],
-    "techno": [3, 2, None, 3, 9, 3, 3, 3, None, 3, 5, None, 3, 9, None],
+    "pop": SOURCE_PROGRAMS,
+    "ballad": [0, 42, 46, 40, 73, None, None, 48, 71, 40, 40, 60, 60, 73, 46],
+    "rock": [16, 34, 29, 30, None, None, None, 29, 65, 16, 16, 56, 61, None, 29],
+    "techno": [88, 38, None, 81, 72, 118, 118, 81, None, 25, 89, None, 61, 78, None],
 }
 
 def instrument_label(track_id, voice):
     if track_id == 'track-10':
-        return ("Pop kit", "Rock kit", "Lo-fi kit", "Techno kit", "Soft ballad kit",
-                "Orchestral percussion", "Organ kit", "Metal kit")[voice]
-    return VOICE_NAMES[voice]
+        return DRUM_KIT_NAMES.get(voice, f"Drum kit {voice}")
+    return GM_NAMES.get(voice, f"GM program {voice + 1}")
 
 def default_tracks():
-    return {tid: {"active": True, "voice": voice, "gain": .8}
-            for (tid, _), voice in zip(TRACKS, DEFAULT_VOICES)}
+    return {tid: {"active": True, "voice": voice, "gain": 1.0}
+            for (tid, _), voice in zip(TRACKS, SOURCE_PROGRAMS)}
 
 # The MIDI notation is always the same; presets choose audible parts and the SC
 # synth family used to render them. Drums stay enabled where a genre needs them.
@@ -148,9 +159,9 @@ async def apply_genre(genre: str):
     _, reverb, drive=preset; state.genre=genre.lower()
     for i, track_id in enumerate(state.tracks):
         selected = ARRANGEMENTS[state.genre][i]
-        gain = .8 if state.genre == "pop" else (.9 if track_id == 'track-4' else (.65 if track_id in {'track-5','track-14'} else .8))
+        gain = 1.0 if state.genre == "pop" else (.9 if track_id == 'track-4' else (.65 if track_id in {'track-5','track-14'} else .8))
         state.tracks[track_id].update(active=selected is not None,
-            voice=DEFAULT_VOICES[i] if selected is None else selected,gain=gain)
+            voice=SOURCE_PROGRAMS[i] if selected is None else selected,gain=gain)
     sync_tracks(); send_osc("/mixer/style",[reverb,drive]); return response_state()
 @app.put("/api/tracks/{track_id}")
 async def set_track(track_id: str, change: TrackChange):
