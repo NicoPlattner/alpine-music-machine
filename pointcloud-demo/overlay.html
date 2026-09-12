@@ -4,6 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Point Cloud Overlay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Londrina+Solid&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
   html, body {
@@ -21,7 +24,105 @@
     border: 0;
   }
   #media-layer { z-index: 0; opacity: 1; }
-  #person-layer { z-index: 1; pointer-events: auto; mix-blend-mode: multiply; }
+  #person-layer { z-index: 1; pointer-events: auto; }
+  #alpine-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    z-index: 2;
+    pointer-events: none;
+  }
+  #slider-layer {
+    position: fixed;
+    top: 81.9%;
+    left: 76.5%;
+    height: 5vh;
+    width: auto;
+    transform: translate(-50%, -50%);
+    z-index: 2;
+    pointer-events: none;
+  }
+  #frame-layer {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    z-index: 3;
+    pointer-events: none;
+    image-rendering: crisp-edges;
+    image-rendering: pixelated;
+  }
+  .logo-layer {
+    position: fixed;
+    bottom: 10px;
+    left: 10px;
+    width: 500px;
+    height: auto;
+    z-index: 4;
+    pointer-events: none;
+  }
+  #number-layer {
+    position: fixed;
+    top: 8%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5;
+    pointer-events: none;
+    font-family: "Londrina Solid", cursive;
+    font-size: 120px;
+    color: #f5afce;
+    margin: 0;
+    -webkit-text-stroke: 12px #000000;
+    paint-order: stroke fill;
+  }
+  #lyrics-layer {
+    position: fixed;
+    bottom: 15%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    pointer-events: none;
+    display: flex;
+    gap: 0.35em;
+    white-space: nowrap;
+    font-family: "Londrina Solid", cursive;
+    font-size: 44px;
+    color: #fff;
+    -webkit-text-stroke: 12px #231f20;
+    paint-order: stroke fill;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .lyrics-word {
+    position: relative;
+    transition: color 0.15s ease;
+  }
+  .lyrics-word.active { color: #f5afce; }
+  #lyrics-caret {
+    position: absolute;
+    bottom: 100%;
+    left: 0;
+    width: 22px;
+    height: 22px;
+    margin-bottom: 10px;
+    border-radius: 50%;
+    background: #f5afce;
+    border: 5px solid #231f20;
+    transition: left 0.15s ease;
+    transform: translateX(-50%);
+  }
+  #lyrics-caret.jump {
+    animation: lyrics-caret-jump 0.32s ease;
+  }
+  @keyframes lyrics-caret-jump {
+    0% { transform: translateX(-50%) translateY(0); }
+    45% { transform: translateX(-50%) translateY(-20px); }
+    100% { transform: translateX(-50%) translateY(0); }
+  }
+
 </style>
 </head>
 <body>
@@ -32,5 +133,109 @@
     title="Live person point cloud"
     allow="camera; microphone"
   ></iframe>
+  <img id="alpine-layer" src="./UI/Wolp/AlpineSoundMachine.svg" alt="" />
+  <img id="slider-layer" src="./UI/Wolp/slider.svg" alt="" />
+  <img id="frame-layer" src="./UI/Wolp/Frame.svg" alt="" />
+  <img id="logo-layer" class="logo-layer" src="./UI/Wolp/Wolp_shame.png" alt="" />
+  <p id="number-layer">666</p>
+  <div id="lyrics-layer"></div>
+
+  <script>
+    // Browsers can't list a local folder's contents, so the set of PNGs to
+    // cycle through has to be named explicitly here.
+    const WOLP_IMAGES = [
+      "./UI/Wolp/Wolp_shame.png",
+      "./UI/Wolp/Wolp_love.png",
+      "./UI/Wolp/Wolp_dead.png",
+      "./UI/Wolp/Wolp_happy.png",
+    ];
+    const logoLayer = document.getElementById("logo-layer");
+    let wolpIndex = 0;
+    setInterval(() => {
+      wolpIndex = (wolpIndex + 1) % WOLP_IMAGES.length;
+      logoLayer.src = WOLP_IMAGES[wolpIndex];
+    }, 1000);
+
+    // --- Karaoke captions ---
+    // PLACEHOLDER lyrics — swap this array out for the real timestamped
+    // lyrics later. Each entry is { time: seconds, text: "line" }; the line
+    // active at a given moment is whichever one's `time` is the most recent
+    // one at or before the current playback time.
+    const LYRICS = [
+      { time: 2, text: "la la la placeholder line" },
+      { time: 8, text: "swap this array for the real lyrics" },
+      { time: 14, text: "each line just needs a start time" },
+      { time: 20, text: "words highlight one by one as they play" },
+      { time: 26, text: "the caret jumps above the active word" },
+      { time: 32, text: "replace me when the real lrc data is ready" },
+    ];
+
+    const lyricsLayer = document.getElementById("lyrics-layer");
+    const lyricsCaret = document.createElement("div");
+    lyricsCaret.id = "lyrics-caret";
+
+    let activeLineIndex = -1;
+    let activeWordSpans = [];
+    let activeWordIndex = -1;
+
+    function setActiveLine(line) {
+      lyricsLayer.innerHTML = "";
+      activeWordSpans = line.text.split(" ").map((word) => {
+        const span = document.createElement("span");
+        span.className = "lyrics-word";
+        span.textContent = word;
+        lyricsLayer.appendChild(span);
+        return span;
+      });
+      lyricsLayer.appendChild(lyricsCaret);
+      activeWordIndex = -1;
+    }
+
+    function updateLyrics(currentTime) {
+      let lineIndex = -1;
+      for (let i = 0; i < LYRICS.length; i++) {
+        if (currentTime >= LYRICS[i].time) lineIndex = i;
+        else break;
+      }
+      if (lineIndex === -1) {
+        lyricsLayer.style.opacity = 0;
+        activeLineIndex = -1;
+        return;
+      }
+      lyricsLayer.style.opacity = 1;
+      if (lineIndex !== activeLineIndex) {
+        activeLineIndex = lineIndex;
+        setActiveLine(LYRICS[lineIndex]);
+      }
+
+      const line = LYRICS[lineIndex];
+      const lineEnd = lineIndex + 1 < LYRICS.length ? LYRICS[lineIndex + 1].time : line.time + 6;
+      const perWord = (lineEnd - line.time) / activeWordSpans.length;
+      let wordIndex = Math.floor((currentTime - line.time) / perWord);
+      wordIndex = Math.max(0, Math.min(activeWordSpans.length - 1, wordIndex));
+
+      activeWordSpans.forEach((span, i) => span.classList.toggle("active", i === wordIndex));
+      const activeSpan = activeWordSpans[wordIndex];
+      if (activeSpan) {
+        lyricsCaret.style.left = `${activeSpan.offsetLeft + activeSpan.offsetWidth / 2}px`;
+        if (wordIndex !== activeWordIndex) {
+          activeWordIndex = wordIndex;
+          lyricsCaret.classList.remove("jump");
+          void lyricsCaret.offsetWidth; // restart the animation
+          lyricsCaret.classList.add("jump");
+        }
+      }
+    }
+
+    // The audio lives inside the media-layer iframe (background-flat.html),
+    // which posts its currentTime up to us since cross-frame access isn't
+    // otherwise available.
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (data && data.type === "wolp-audio-time") {
+        updateLyrics(data.currentTime || 0);
+      }
+    });
+  </script>
 </body>
 </html>

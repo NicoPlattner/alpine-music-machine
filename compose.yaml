@@ -1,15 +1,16 @@
 services:
   backend:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       AUDIO_ENGINE_HOST: audio-engine
       AUDIO_ENGINE_PORT: "57120"
       SONG_DURATION_SECONDS: "209.797149"
       SONG_BPM: "114"
       AUDIO_PREBUFFER_SECONDS: "3"
-      LYRICS_PATH: /music/lyrics.word-timed.json
-    volumes:
-      - ./tracks/never-gonna-give-you-up:/music:ro
+      LYRICS_PATH: /app/lyrics.word-timed.json
+      CORS_ORIGINS: "http://localhost:5173,http://127.0.0.1:5173"
     ports:
       - "8000:8000"
     healthcheck:

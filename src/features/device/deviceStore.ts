@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { DeviceConfig } from './deviceTypes'
 
 interface DeviceConfigActions {
@@ -12,7 +13,20 @@ const initialDeviceConfig: DeviceConfig = {
   cameraEnabled: false,
 }
 
-export const useDeviceStore = create<DeviceConfig & DeviceConfigActions>((set) => ({
-  ...initialDeviceConfig,
-  updateDeviceConfig: (config) => set(config),
-}))
+export const useDeviceStore = create<DeviceConfig & DeviceConfigActions>()(
+  persist(
+    (set) => ({
+      ...initialDeviceConfig,
+      updateDeviceConfig: (config) => set(config),
+    }),
+    {
+      name: 'alpine-sound-machine-devices',
+      partialize: (state) => ({
+        microphoneDeviceId: state.microphoneDeviceId,
+        cameraDeviceId: state.cameraDeviceId,
+        microphoneEnabled: state.microphoneEnabled,
+        cameraEnabled: state.cameraEnabled,
+      }),
+    },
+  ),
+)

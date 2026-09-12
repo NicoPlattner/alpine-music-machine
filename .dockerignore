@@ -2,5 +2,7 @@
 .gitignore
 **/__pycache__
 **/.pytest_cache
-tracks
-
+tracks/**
+!tracks/never-gonna-give-you-up/
+tracks/never-gonna-give-you-up/*
+!tracks/never-gonna-give-you-up/lyrics.word-timed.json

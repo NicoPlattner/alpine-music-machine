@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from pythonosc.udp_client import SimpleUDPClient
@@ -21,6 +22,11 @@ DURATION = float(os.getenv("SONG_DURATION_SECONDS", "209.797149"))
 SONG_BPM = float(os.getenv("SONG_BPM", "114"))
 PREBUFFER_SECONDS = float(os.getenv("AUDIO_PREBUFFER_SECONDS", "3"))
 LYRICS_PATH = Path(os.getenv("LYRICS_PATH", "/music/lyrics.word-timed.json"))
+CORS_ORIGINS = tuple(
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if origin.strip()
+)
 
 TRACKS = (
     ("track-1", "E. Piano 2"), ("track-2", "Synth Bass 2"), ("track-3", "Clean Guitar"),
@@ -133,6 +139,13 @@ class TrackChange(BaseModel): active: Optional[bool]=None; gain: Optional[float]
 @asynccontextmanager
 async def lifespan(_: FastAPI): yield
 app=FastAPI(title="MIDI Genre Arranger",version="1.0",lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(CORS_ORIGINS),
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "OPTIONS"],
+    allow_headers=["Content-Type"],
+)
 @app.get("/health")
 async def health(): return {"status":"ok","audio_connected":relay.encoder_connected}
 @app.get("/api/state")

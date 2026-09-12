@@ -236,6 +236,7 @@ function start() {
   }
 
   window.addEventListener("resize", resize);
+  let frameCount = 0;
   function render() {
     requestAnimationFrame(render);
     pointCloud.material.uniforms.uTime.value += 0.016;
@@ -243,6 +244,19 @@ function start() {
     pointCloud.material.uniforms.uAudioBeat.value = isPlaying ? beat : 0;
     pointCloud.material.uniforms.uWaveLevel.value = isPlaying ? smoothedLevel : 0;
     renderer.render(scene, camera);
+
+    // Broadcast playback time to the parent page (overlay.html) so it can
+    // drive karaoke-style captions. Throttled since lyric sync doesn't need
+    // per-frame precision.
+    frameCount++;
+    if (frameCount % 6 === 0) {
+      window.parent.postMessage({
+        type: "wolp-audio-time",
+        currentTime: track.currentTime,
+        duration: track.duration,
+        isPlaying,
+      }, "*");
+    }
   }
   render();
 }
