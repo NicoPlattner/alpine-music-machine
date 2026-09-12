@@ -170,8 +170,13 @@ export function useAudioBackend() {
       }
     }
     const startSession = async () => {
-      const restartId = ++requestSequenceRef.current
       try {
+        // Every new performance starts from the untouched source arrangement,
+        // even if the backend retained a genre from the previous session.
+        const genreId = ++requestSequenceRef.current
+        const defaultState = await audioApi.setGenre('pop', lifecycleController.signal)
+        applyState(defaultState, genreId)
+        const restartId = ++requestSequenceRef.current
         const restarted = await audioApi.restart(lifecycleController.signal)
         applyState(restarted, restartId)
         const playId = ++requestSequenceRef.current

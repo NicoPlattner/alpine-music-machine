@@ -1,6 +1,6 @@
 // Each MIDI track becomes a Pbind; Ppar starts the enabled tracks together.
 (
-var tracks=IdentityDictionary.new, settings=IdentityDictionary.new, master, clock, player, soundfont, speed=1.0, playing=false, position=0.0, changedAt=0.0, duration=0.0, currentPosition, stopPlayer, startPlayer, patternFor;
+var tracks=IdentityDictionary.new, settings=IdentityDictionary.new, master, clock, player, soundfont, speed=1.0, playing=false, position=0.0, changedAt=0.0, duration=0.0, currentPosition, stopPlayer, startPlayer, patternFor, controlPatternFor;
 s.options.numOutputBusChannels=2; s.options.numInputBusChannels=2; s.options.sampleRate=48000; s.options.memSize=262144; s.options.maxNodes=2048; s.latency=0.12;
 s.waitForBoot({
  var secondsForTick={|tick| tick / ~midiDivision * (60 / ~midiBpm) };
@@ -17,7 +17,19 @@ s.waitForBoot({
   soundfont.sendMsg("/soundfont/note-on",channel,note,velocity,program);
   thisThread.clock.sched(sustain,{soundfont.sendMsg("/soundfont/note-off",channel,note);nil});
  });
- SynthDef(\master,{|audible=0,reverb=0,drive=0| var sig=SoundIn.ar([0,1]); sig=(sig*(1+(drive*4))).tanh; sig=FreeVerb2.ar(sig[0],sig[1],reverb.clip(0,0.7),0.72,0.4); Out.ar(0,Limiter.ar(sig*Lag.kr(audible,0.03),0.92)) }).add; s.sync;
+ Event.addEventType(\soundfontControl,{
+  var channel=~chan.asInteger, command=~command.asInteger;
+  if(command==176,{soundfont.sendMsg("/soundfont/cc",channel,~data1.asInteger,~data2.asInteger)});
+  if(command==224,{soundfont.sendMsg("/soundfont/pitch-bend",channel,(~data1+(~data2*128)).asInteger)});
+ });
+ SynthDef(\master,{|audible=0,reverb=0,drive=0|
+  var dry=SoundIn.ar([0,1]);
+  var amount=drive.clip(0,1);
+  var driven=dry+((((dry*(1+(amount*4))).tanh)-dry)*amount);
+  var wet=FreeVerb2.ar(driven[0],driven[1],reverb.clip(0,0.7),0.72,0.4);
+  // With reverb=0 and drive=0 (Pop), this is the untouched FluidSynth output.
+  Out.ar(0,wet*Lag.kr(audible,0.03));
+ }).add; s.sync;
  master=Synth(\master); currentPosition={ if(playing,{position+((SystemClock.seconds-changedAt)*speed)},{position}) };
  // Convert absolute MIDI ticks to Pbind event streams. Seeking creates new
  // streams beginning at the requested MIDI beat, so events remain quantized.
@@ -39,8 +51,29 @@ s.waitForBoot({
     \program,Pfunc({settings[track[\id].asSymbol][\voice]}),\chan,track[\channel])
   ],1) });
  };
+ controlPatternFor={|track, fromSeconds|
+  var fromTick=fromSeconds * ~midiBpm / 60 * ~midiDivision;
+  var prior=IdentityDictionary.new;
+  var source=track[\events].select({|event|[176,224].includes(event[1])});
+  var events, durations;
+  source.do({|event|if(event[0]<=fromTick,{
+   var key=if(event[1]==176,{("cc"++event[3]).asSymbol},{\pitchBend});
+   prior[key]=event.copy.put(0,fromTick);
+  })});
+  events=(prior.values.asArray++source.select({|event|event[0]>fromTick})).sort({|a,b|a[0]<b[0]});
+  durations=events.collect({|event,i|if(i<(events.size-1),{(events[i+1][0]-event[0])/~midiDivision},{0.01})});
+  if(events.isEmpty,{Pbind(\type,\rest,\dur,0.01)},{Pseq([
+   Pbind(\type,\rest,\dur,Pseq([(events[0][0]-fromTick)/~midiDivision],1)),
+   Pbind(\type,\soundfontControl,
+    \command,Pseq(events.collect({|event|event[1]}),1),
+    \chan,Pseq(events.collect({|event|event[2]}),1),
+    \data1,Pseq(events.collect({|event|event[3]}),1),
+    \data2,Pseq(events.collect({|event|event[4]}),1),
+    \dur,Pseq(durations,1))
+  ],1)})
+ };
  stopPlayer={if(player.notNil,{player.stop;player=nil});soundfont.sendMsg("/soundfont/all-notes-off")};
- startPlayer={|at| var patterns; stopPlayer.(); patterns=tracks.values.asArray.select({|track|settings[track[\id].asSymbol][\active]>0}).collect({|track|patternFor.(track,at)}); master.set(\audible,patterns.notEmpty.binaryValue); if(patterns.notEmpty,{player=Ppar(patterns).play(clock,quant:0)})};
+ startPlayer={|at| var patterns=Array.new; stopPlayer.(); tracks.values.asArray.select({|track|settings[track[\id].asSymbol][\active]>0}).do({|track|patterns=patterns.add(controlPatternFor.(track,at)).add(patternFor.(track,at))}); master.set(\audible,patterns.notEmpty.binaryValue); if(patterns.notEmpty,{player=Ppar(patterns).play(clock,quant:0)})};
  OSCdef(\midiState,{|m|var index=1;while({index<m.size},{var id=m[index].asString.asSymbol;settings[id]=(active:m[index+1].asFloat.clip(0,1),voice:m[index+2].asFloat.clip(0,127),gain:m[index+3].asFloat.clip(0,1.5));index=index+4});if(playing,{var at=currentPosition.();stopPlayer.();startPlayer.(at)})},"/midi/state");
  OSCdef(\style,{|m|master.set(\reverb,m[1].asFloat,\drive,m[2].asFloat)},"/mixer/style");
  OSCdef(\speed,{|m|position=currentPosition.();speed=m[1].asFloat.clip(0.5,1.5);clock.tempo=(~midiBpm/60)*speed;changedAt=SystemClock.seconds;if(playing,{startPlayer.(position)})},"/transport/speed");

@@ -15,7 +15,7 @@ export interface GenreGestureControl {
 }
 
 export function useGenreGestureControl(controlHand: TrackedHand | null): GenreGestureControl {
-  const [genre, setGenre] = useState<Genre>('Rock')
+  const [genre, setGenre] = useState<Genre>('Pop')
   const [rawGesture, setRawGesture] = useState<GenreGesture>('idle')
   const [confirmedGesture, setConfirmedGesture] = useState<GenreGesture>('idle')
   const [candidateGesture, setCandidateGesture] = useState<GenreGesture>('idle')

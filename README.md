@@ -85,6 +85,9 @@ engine creates one `Pbind` for every MIDI track and combines enabled patterns in
 a `Ppar`. MIDI note onsets, overlapping notes and lengths are retained. The
 patterns send their events to FluidSynth, which uses the packaged FluidR3 GM
 SoundFont; its stereo output passes through the persistent master effects synth.
+The source volume, pan, modulation, and pitch-bend events are scheduled in
+companion control patterns, including when seeking. FluidSynth's global reverb
+and chorus are disabled; genre effects are applied only by SuperCollider.
 
 There are four presets: Pop, Ballad, Rock, and Techno. Ballad, Rock and Techno
 choose which source parts play and which SuperCollider voice renders each one.
