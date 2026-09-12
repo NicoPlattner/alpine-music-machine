@@ -25,7 +25,7 @@ export function DeviceSetupModal({ song, onCancel, onStart }: DeviceSetupModalPr
   }, [onCancel])
 
   return (
-    <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}>
+    <div className="modal-backdrop leo-device-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onCancel() }}>
       <section className="device-modal" role="dialog" aria-modal="true" aria-labelledby="device-setup-title">
         <header className="device-modal-header">
           <div><p className="status-label">Audio setup</p><h2 id="device-setup-title">Ready for {song.title}?</h2></div>

@@ -30,7 +30,7 @@ export class LeoBackgroundRenderer {
     this.texture.magFilter = THREE.LinearFilter
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setClearColor(0x000000, 1)
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25))
     this.camera.position.set(0, 0, 2.4)
     this.geometry = this.createGeometry(source.naturalWidth / source.naturalHeight)
     this.material = this.createMaterial()
@@ -97,7 +97,7 @@ export class LeoBackgroundRenderer {
         uTexture: { value: this.texture },
         uPointSize: { value: POINT_SIZE },
         uContrast: { value: IMAGE_CONTRAST },
-        uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 2) },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio || 1, 1.25) },
         uAudioBeat: { value: 0 },
         uWaveLevel: { value: 0 },
         uWaveAmplitude: { value: WAVE_AMPLITUDE },

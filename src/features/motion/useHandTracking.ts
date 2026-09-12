@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { FilesetResolver, HandLandmarker } from '@mediapipe/tasks-vision'
-import { getPerformerRenderRect } from '../performance/performerLayout'
+import { getLeoPerformerRenderRect } from '../performance/performerLayout'
 import type { Handedness, HandTrackingState, ScreenPoint, TrackedHand } from './handTrackingTypes'
 
 export const DEBUG_ACCEPT_ANY_HAND = import.meta.env.DEV
@@ -59,7 +59,7 @@ export function useHandTracking(video: HTMLVideoElement | null): HandTrackingSta
 
           const stageWidth = window.innerWidth
           const stageHeight = window.innerHeight
-          const rect = getPerformerRenderRect(stageWidth, stageHeight, sourceAspect)
+          const rect = getLeoPerformerRenderRect(stageWidth, stageHeight, sourceAspect)
           const hands: TrackedHand[] = (result?.landmarks ?? []).map((rawHandLandmarks, index) => {
             const category = result?.handedness[index]?.[0]
             const reportedHandedness = normalizeHandedness(category?.categoryName)

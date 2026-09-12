@@ -9,8 +9,9 @@ export class LeoAudioController {
   private readonly data: Uint8Array<ArrayBuffer>
   private smoothedBeat = 0
   private smoothedLevel = 0
+  private lastTimeReport = 0
 
-  constructor(signal: LeoAudioSignal = { beat: 0, level: 0 }) {
+  constructor(signal: LeoAudioSignal = { beat: 0, level: 0 }, private readonly onPlaybackTime?: (time: number) => void) {
     this.signal = signal
     this.audio.loop = true
     this.audio.preload = 'auto'
@@ -43,6 +44,11 @@ export class LeoAudioController {
     this.smoothedBeat += (bass - this.smoothedBeat) * 0.09
     this.signal.level = this.smoothedLevel
     this.signal.beat = Math.min(1, this.smoothedBeat * 3)
+    const now = performance.now()
+    if (this.onPlaybackTime && now - this.lastTimeReport >= 100) {
+      this.lastTimeReport = now
+      this.onPlaybackTime(this.audio.currentTime)
+    }
   }
 
   dispose() {

@@ -1,21 +1,20 @@
 import * as THREE from 'three'
-import { getPerformerRenderRect } from '../../performance/performerLayout'
 import { leoGlowFragmentShader, leoGlowVertexShader, leoPointFragmentShader, leoPointVertexShader } from './leoPerformerShaders'
 import type { LeoAudioSignal } from './leoAudio'
 
-export const LEO_POINT_COLUMNS = 312
-export const LEO_POINT_ROWS = 228
+export const LEO_POINT_COLUMNS = 390
+export const LEO_POINT_ROWS = 285
 export const LEO_POINT_COUNT = LEO_POINT_COLUMNS * LEO_POINT_ROWS
 export const LEO_POINT_SIZE = 2.3
 export const LEO_DEPTH_SCALE = 0.5
 export const LEO_CAMERA_FOV = 50
 export const LEO_DEMO_CAMERA_Z = 2.4
-export const LEO_ZOOM = 1.716
-export const LEO_Y_OFFSET = -0.42
+export const LEO_ZOOM = 0.9
+export const LEO_Y_OFFSET = -0.12
 export const LEO_TRAIL_LAYERS = 9
 export const LEO_GLOW_OPACITY = 0.6
 export const LEO_GLOW_BLUR_RADIUS = 3.5
-export const LEO_MAX_PIXEL_RATIO = 2
+export const LEO_MAX_PIXEL_RATIO = 1.25
 
 export interface LeoRenderMetrics {
   framesRendered: number
@@ -111,20 +110,10 @@ export class LeoPerformerRenderer {
     this.renderer.setPixelRatio(pixelRatio)
     this.renderer.setSize(width, height, false)
     this.camera.aspect = width / height
-    const sourceAspect = this.videoSource.width / Math.max(1, this.videoSource.height)
-    const rect = getPerformerRenderRect(width, height, sourceAspect)
-    const visibleFraction = rect.height / height
-    const fittedCameraZ = (2 * LEO_ZOOM) / (2 * Math.tan(THREE.MathUtils.degToRad(LEO_CAMERA_FOV / 2)) * visibleFraction)
-    this.camera.position.z = Math.max(LEO_DEMO_CAMERA_Z, fittedCameraZ)
-    this.camera.far = Math.max(50, this.camera.position.z * 4)
+    this.camera.position.z = LEO_DEMO_CAMERA_Z
     this.camera.updateProjectionMatrix()
-
-    const visibleHeight = 2 * this.camera.position.z * Math.tan(THREE.MathUtils.degToRad(LEO_CAMERA_FOV / 2))
-    const visibleWidth = visibleHeight * this.camera.aspect
-    const targetCenterX = rect.x + rect.width / 2
-    const targetCenterY = rect.y + rect.height / 2
-    this.group.position.x = (targetCenterX / width - 0.5) * visibleWidth
-    this.group.position.y = (0.5 - targetCenterY / height) * visibleHeight + LEO_Y_OFFSET
+    this.group.position.x = 0
+    this.group.position.y = LEO_Y_OFFSET
     for (const material of this.trailMaterials) material.uniforms.uPixelRatio.value = pixelRatio
   }
 
@@ -182,7 +171,7 @@ export class LeoPerformerRenderer {
       uniforms: {
         uVideoTex: { value: this.videoTexture },
         uMaskTex: { value: this.maskTexture },
-        uColorTint: { value: new THREE.Color(0x000000) },
+        uColorTint: { value: new THREE.Color(0xf5afce) },
         uColorMix: { value: 1 },
         uShadeMin: { value: 0.45 },
         uDepthScale: { value: LEO_DEPTH_SCALE },

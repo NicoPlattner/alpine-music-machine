@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Londrina+Sketch&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Londrina+Solid&display=swap');
 
 :root {
-  color-scheme: dark; font-family: 'Londrina Sketch', cursive; color: oklch(0.94 0 0); background: oklch(0.08 0 0);
+  color-scheme: dark; font-family: 'Londrina Solid', cursive; color: oklch(0.94 0 0); background: oklch(0.08 0 0);
   font-synthesis: none; text-rendering: optimizeLegibility;
   --bg: oklch(0.08 0 0); --surface: oklch(0.14 0 0); --raised: oklch(0.19 0 0); --ink: oklch(0.94 0 0);
   --muted: oklch(0.72 0.01 24); --primary: oklch(0.59 0.172 24); --primary-hover: oklch(0.65 0.18 24);

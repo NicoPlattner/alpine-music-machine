@@ -29,7 +29,8 @@ interface LeoPerformerLayerProps {
 }
 
 export const PERFORMER_VISUAL = import.meta.env.DEV && import.meta.env.VITE_PERFORMER_VISUAL === 'segmented' ? 'segmented' : 'leo'
-export const LEO_POINT_COUNT = 312 * 228
+export const LEO_POINT_COUNT = 390 * 285
+const VISUAL_RENDER_INTERVAL_MS = 1000 / 24
 
 export const EMPTY_LEO_DIAGNOSTICS: LeoPerformerDiagnostics = {
   visual: PERFORMER_VISUAL === 'leo' ? 'Leo' : 'Segmented',
@@ -68,6 +69,7 @@ export function LeoPerformerLayer({ enabled, source, maskSource, audioSignal, on
     let resizeObserver: ResizeObserver | null = null
     let animationFrame = 0
     let lastDiagnosticsAt = 0
+    let lastRenderedAt = 0
 
     const reportError = (error: unknown) => {
       onDiagnosticsChange({
@@ -83,7 +85,10 @@ export function LeoPerformerLayer({ enabled, source, maskSource, audioSignal, on
     }
     const render = (timestamp: number) => {
       try {
-        renderer?.render(timestamp)
+        if (timestamp - lastRenderedAt >= VISUAL_RENDER_INTERVAL_MS) {
+          lastRenderedAt = timestamp
+          renderer?.render(timestamp)
+        }
         if (renderer && timestamp - lastDiagnosticsAt >= 250) {
           lastDiagnosticsAt = timestamp
           const metrics = renderer.getMetrics()

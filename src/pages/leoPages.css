@@ -1,0 +1,119 @@
+.leo-page {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: clamp(68px, 8vh, 96px) clamp(74px, 7vw, 128px);
+  color: #f7f2b9;
+  background: #050505;
+}
+
+.leo-page-frame { position: fixed; z-index: 0; inset: 0; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.leo-page-content { position: relative; z-index: 1; width: min(1260px, 100%); margin: 0 auto; }
+.leo-page .status-label { margin: 0 0 8px; color: #f5afce; font-size: 1.25rem; letter-spacing: .03em; }
+.leo-page h1 { color: #f5afce; font-size: clamp(3.8rem, 6.2vw, 6rem); line-height: .9; letter-spacing: 0; -webkit-text-stroke: clamp(3px, .3vw, 5px) #231f20; paint-order: stroke fill; }
+
+.picker-page .picker-header { max-width: none; margin: 0 0 clamp(34px, 5vh, 62px); text-align: center; }
+.picker-page .picker-header > p:last-child { margin: 18px 0 0; color: #fff; font-size: clamp(1.25rem, 1.8vw, 1.7rem); }
+.picker-page .song-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(18px, 2vw, 30px); border: 0; }
+.picker-page .song-card { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; align-items: stretch; gap: 12px; padding: clamp(14px, 1.6vw, 22px); border: 5px solid #dddeda; border-radius: 12px; color: #fff; background: #080808; text-align: left; transition: border-color 180ms ease, transform 180ms ease, background-color 180ms ease; }
+.picker-page .song-card:hover { padding: clamp(14px, 1.6vw, 22px); border-color: #f5afce; background: #151013; transform: translateY(-5px); }
+.picker-page .song-card:focus-visible { outline: 5px solid #f7f2b9; outline-offset: 5px; }
+.picker-page .song-number { position: absolute; z-index: 2; top: 22px; left: 22px; display: grid; width: 44px; height: 44px; place-items: center; border: 4px solid #231f20; border-radius: 50%; color: #231f20; background: #f5afce; font-size: 1.35rem; }
+.picker-page .song-cover { width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 6px; object-fit: cover; background: #231f20; }
+.picker-page .song-details { display: flex; flex: 1; flex-direction: column; gap: 4px; }
+.picker-page .song-details strong { color: #f7f2b9; font-size: clamp(1.5rem, 2vw, 2rem); line-height: 1; }
+.picker-page .song-details > span { color: #fff; font-size: 1.1rem; }
+.picker-page .song-tags { display: flex; gap: 7px; margin-top: 8px; }
+.picker-page .song-tags em { padding: 4px 10px; border: 2px solid #5f8f2f; border-radius: 999px; color: #f7f2b9; background: transparent; font-size: .9rem; }
+.picker-page .song-duration { color: #f5afce; font-size: 1.2rem; }
+.picker-page .song-action { align-self: flex-end; padding: 7px 14px; border: 3px solid #231f20; border-radius: 999px; color: #231f20; background: #f5afce; font-size: 1.15rem; }
+
+.results-page { display: block; }
+.results-content { position: relative; z-index: 2; display: flex; min-height: calc(100vh - clamp(136px, 16vh, 192px)); flex-direction: column; align-items: center; justify-content: center; }
+.results-page header { margin: 0 0 clamp(28px, 4vh, 48px); text-align: center; }
+.results-wolpertinger { position: absolute; z-index: 1; bottom: 1.2vh; left: .8vw; width: min(29vw, 440px); height: auto; pointer-events: none; }
+.results-stats { display: grid; width: min(880px, 75vw); grid-template-columns: 1.35fr 1fr 1fr; gap: 14px; margin: 0 0 34px; border: 0; }
+.results-stats div { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border: 5px solid #dddeda; border-radius: 12px; background: #080808; text-align: center; }
+.results-stats div + div { border-left: 5px solid #dddeda; }
+.results-stats .score-main { border-color: #f5afce; }
+.results-stats dt { color: #f7f2b9; font-size: 1.15rem; }
+.results-stats dd { margin: 5px 0 0; color: #fff; font-size: clamp(2.7rem, 4vw, 4.3rem); line-height: 1; }
+.results-stats .score-main dd { color: #f5afce; }
+.result-actions { display: flex; gap: 14px; }
+.leo-page .primary-button,
+.leo-page .secondary-button { min-height: 54px; padding: 0 25px; border: 4px solid #231f20; border-radius: 999px; font-size: 1.3rem; transition: transform 160ms ease, background-color 160ms ease; }
+.leo-page .primary-button { color: #231f20; background: #f5afce; }
+.leo-page .secondary-button { color: #231f20; background: #f7f2b9; }
+.leo-page .primary-button:hover,
+.leo-page .secondary-button:hover { transform: translateY(-3px); background: #fff; }
+
+/* Device setup uses the same chunky, hand-drawn game vocabulary as the stage. */
+.leo-device-backdrop { padding: clamp(14px, 2.5vw, 34px); background: rgb(0 0 0 / 90%); }
+.leo-device-backdrop .device-modal {
+  width: min(1040px, 100%);
+  padding: clamp(22px, 3vw, 38px);
+  border: 6px solid #dddeda;
+  border-radius: 14px;
+  outline: 4px solid #231f20;
+  color: #fff;
+  background: #080808;
+  scrollbar-color: #f5afce #171717;
+}
+.leo-device-backdrop .device-modal-header { padding-bottom: 24px; border-color: #6f5b4c; }
+.leo-device-backdrop .device-modal-header .status-label { color: #f7d45c; font-size: 1rem; letter-spacing: .04em; }
+.leo-device-backdrop .device-modal-header h2 { color: #f5afce; font-size: clamp(2.1rem, 4vw, 3.2rem); line-height: 1; -webkit-text-stroke: 3px #231f20; paint-order: stroke fill; }
+.leo-device-backdrop .icon-button { width: 48px; height: 48px; border: 4px solid #231f20; color: #231f20; background: #f5afce; font-size: 2rem; transition: transform 160ms ease, background-color 160ms ease; }
+.leo-device-backdrop .icon-button:hover { background: #f7f2b9; transform: rotate(5deg) scale(1.04); }
+.leo-device-backdrop .device-grid { gap: 18px; padding-block: 24px; }
+.leo-device-backdrop .device-section { padding: clamp(18px, 2.2vw, 26px); border: 4px solid #dddeda; border-radius: 12px; background: #111; }
+.leo-device-backdrop .device-section-heading { margin-bottom: 24px; }
+.leo-device-backdrop .device-section h3 { color: #f7f2b9; font-size: 1.45rem; }
+.leo-device-backdrop .device-section-heading p { color: #cbc4c1; font-size: .95rem; }
+.leo-device-backdrop .device-icon { width: 52px; height: 52px; border: 3px solid #231f20; border-radius: 10px; color: #231f20; background: #5f8f2f; font-size: .8rem; }
+.leo-device-backdrop .device-section label,
+.leo-device-backdrop .level-block > span { color: #f5afce; font-size: .85rem; letter-spacing: .035em; }
+.leo-device-backdrop .device-section select { height: 50px; border: 4px solid #dddeda; border-radius: 8px; color: #fff; background: #111; font-size: 1.05rem; }
+.leo-device-backdrop .device-section select:focus-visible { outline: 4px solid #f5afce; outline-offset: 3px; }
+.leo-device-backdrop .level-meter { height: 28px; gap: 5px; }
+.leo-device-backdrop .level-meter i { border-radius: 4px; background: #292929; }
+.leo-device-backdrop .level-meter i.active { background: #5f8f2f; }
+.leo-device-backdrop .camera-preview { border: 4px solid #6f5b4c; border-radius: 9px; background: #050505; }
+.leo-device-backdrop .device-status { color: #8fc75a; font-size: .95rem; }
+.leo-device-backdrop .device-status-error { color: #f5afce; }
+.leo-device-backdrop .browser-audio { border-color: #6f5b4c; }
+.leo-device-backdrop .browser-audio .ready-mark { color: #8fc75a; font-size: 1.35rem; }
+.leo-device-backdrop .browser-audio strong { color: #f7f2b9; font-size: 1.15rem; }
+.leo-device-backdrop .browser-audio span { color: #cbc4c1; }
+.leo-device-backdrop .device-warning { border: 3px solid #f5afce; background: #211218; }
+.leo-device-backdrop .device-warning p,
+.leo-device-backdrop .text-button { color: #f5afce; }
+.leo-device-backdrop .device-actions { gap: 14px; padding-top: 24px; }
+.leo-device-backdrop .primary-button,
+.leo-device-backdrop .secondary-button { min-height: 54px; padding: 0 24px; border: 4px solid #231f20; border-radius: 999px; color: #231f20; font-size: 1.2rem; transition: transform 160ms ease, background-color 160ms ease; }
+.leo-device-backdrop .primary-button { background: #f5afce; }
+.leo-device-backdrop .secondary-button { background: #f7f2b9; }
+.leo-device-backdrop .primary-button:hover,
+.leo-device-backdrop .secondary-button:hover { background: #fff; transform: translateY(-2px); }
+
+@media (max-width: 760px) {
+  .leo-device-backdrop .device-modal { padding: 20px; }
+  .leo-device-backdrop .device-modal-header h2 { font-size: 2rem; }
+  .leo-device-backdrop .device-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 920px) {
+  .leo-page { overflow: auto; padding: 64px 56px; }
+  .picker-page .song-list { grid-template-columns: 1fr; }
+  .picker-page .song-card { display: grid; grid-template-columns: 160px 1fr auto; }
+  .picker-page .song-cover { grid-row: span 3; }
+  .results-stats { width: min(680px, 82vw); grid-template-columns: 1fr; }
+  .results-stats div { min-height: 108px; }
+  .results-stats div + div { border-left: 5px solid #dddeda; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-page .song-card,
+  .leo-page .primary-button,
+  .leo-page .secondary-button { transition: none; }
+}

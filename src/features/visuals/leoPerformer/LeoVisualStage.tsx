@@ -9,9 +9,10 @@ interface Props {
   source: HTMLCanvasElement | null
   maskSource: HTMLCanvasElement | null
   onDiagnosticsChange: (diagnostics: LeoPerformerDiagnostics) => void
+  onPlaybackTime?: (time: number) => void
 }
 
-export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChange }: Props) {
+export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChange, onPlaybackTime }: Props) {
   const microphoneDeviceId = useDeviceStore((state) => state.microphoneDeviceId)
   const microphoneEnabled = useDeviceStore((state) => state.microphoneEnabled)
   const controllerRef = useRef<LeoAudioController | null>(null)
@@ -36,7 +37,7 @@ export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChang
   useEffect(() => {
     if (!enabled) return
     try {
-      const controller = new LeoAudioController(musicSignalRef.current)
+      const controller = new LeoAudioController(musicSignalRef.current, onPlaybackTime)
       controllerRef.current = controller
       void startAudio()
       return () => {
@@ -48,7 +49,7 @@ export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChang
     } catch {
       setAudioBlocked(false)
     }
-  }, [enabled, startAudio])
+  }, [enabled, onPlaybackTime, startAudio])
 
   useEffect(() => {
     if (!enabled || !microphoneEnabled) return

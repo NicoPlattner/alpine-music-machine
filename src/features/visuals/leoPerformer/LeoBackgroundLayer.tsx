@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { LeoAudioDriver } from './leoAudio'
 
 interface Props { audio: LeoAudioDriver }
+const VISUAL_RENDER_INTERVAL_MS = 1000 / 24
 
 export function LeoBackgroundLayer({ audio }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -27,8 +28,12 @@ export function LeoBackgroundLayer({ audio }: Props) {
         observer = new ResizeObserver(() => renderer?.resize(canvas.clientWidth, canvas.clientHeight))
         observer.observe(canvas)
         renderer.resize(canvas.clientWidth, canvas.clientHeight)
+        let lastRenderedAt = 0
         const render = (timestamp: number) => {
-          renderer?.render(timestamp)
+          if (timestamp - lastRenderedAt >= VISUAL_RENDER_INTERVAL_MS) {
+            lastRenderedAt = timestamp
+            renderer?.render(timestamp)
+          }
           animationFrame = requestAnimationFrame(render)
         }
         animationFrame = requestAnimationFrame(render)
