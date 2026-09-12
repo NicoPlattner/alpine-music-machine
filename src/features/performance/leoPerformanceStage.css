@@ -32,12 +32,12 @@
 
 .leo-interface { z-index: 30; pointer-events: none; }
 .leo-interface-art,
-.leo-interface-frame,
-.leo-genre-tint { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.leo-interface-frame { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
 .leo-interface-art { z-index: 1; }
-.leo-genre-tint { z-index: 2; mix-blend-mode: multiply; }
-.leo-selected-genre-color { fill: #f5afce; }
 .leo-interface-frame { z-index: 3; image-rendering: crisp-edges; }
+.leo-genre-icons { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.leo-genre-icon { position: absolute; inset: 0; width: 100%; height: 100%; background-color: #fff; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; mask-mode: alpha; }
+.leo-genre-icon.selected { background-color: #f5afce; }
 .leo-interface-slider { position: absolute; z-index: 2; top: 81.9%; left: 76.5%; width: auto; height: 5vh; transform: translate(-50%, -50%); pointer-events: none; }
 .leo-wolpertinger { position: absolute; z-index: 4; bottom: 1.16vh; left: .65vw; width: 24.41vw; height: auto; pointer-events: none; }
 .leo-score { position: absolute; z-index: 5; top: 8%; left: 50%; margin: 0; transform: translate(-50%, -50%); color: #f5afce; font-family: 'Londrina Solid', cursive; font-size: clamp(64px, 7.82vw, 120px); line-height: 1; -webkit-text-stroke: clamp(6px, .78vw, 12px) #000; paint-order: stroke fill; pointer-events: none; }
