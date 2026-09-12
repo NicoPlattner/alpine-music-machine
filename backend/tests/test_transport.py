@@ -1,5 +1,8 @@
 import asyncio
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from app import main
 
@@ -59,6 +62,20 @@ class TransportTests(unittest.TestCase):
         self.assertTrue(all(track["active"] for track in result["tracks"]))
         self.assertEqual([track["voice"] for track in result["tracks"]], main.DEFAULT_VOICES)
         self.send.assert_any_call("/mixer/style", [0, 0])
+
+    def test_word_timed_lyrics_are_loaded_from_the_mounted_song(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "lyrics.word-timed.json"
+            path.write_text(json.dumps({"words": [{"word": "Never", "start": 1.0, "end": 1.4}]}), encoding="utf-8")
+            with patch.object(main, "LYRICS_PATH", path):
+                result = asyncio.run(main.get_word_timed_lyrics())
+        self.assertEqual(result["words"][0]["word"], "Never")
+
+    def test_missing_word_timed_lyrics_are_not_found(self):
+        with patch.object(main, "LYRICS_PATH", Path("/tmp/no-such-lyrics.json")):
+            with self.assertRaises(main.HTTPException) as raised:
+                asyncio.run(main.get_word_timed_lyrics())
+        self.assertEqual(raised.exception.status_code, 404)
 
 
 if __name__ == "__main__":
