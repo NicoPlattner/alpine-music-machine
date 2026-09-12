@@ -1,13 +1,13 @@
 // Each MIDI track becomes a Pbind; Ppar starts the enabled tracks together.
 (
-var tracks=IdentityDictionary.new, settings=IdentityDictionary.new, mixBus, master, clock, player, soundfont, speed=1.0, playing=false, position=0.0, changedAt=0.0, duration=0.0, currentPosition, stopPlayer, startPlayer, patternFor;
+var tracks=IdentityDictionary.new, settings=IdentityDictionary.new, master, clock, player, soundfont, speed=1.0, playing=false, position=0.0, changedAt=0.0, duration=0.0, currentPosition, stopPlayer, startPlayer, patternFor;
 s.options.numOutputBusChannels=2; s.options.numInputBusChannels=2; s.options.sampleRate=48000; s.options.memSize=262144; s.options.maxNodes=2048; s.latency=0.12;
 s.waitForBoot({
  var secondsForTick={|tick| tick / ~midiDivision * (60 / ~midiBpm) };
  thisProcess.interpreter.executeFile("/tmp/midi-arrangement.scd");
  ~midiTracks.do({|track| var finalTick=track[\notes].collect({|note| note[0]+note[1] }).maxItem ? 0;
   tracks[track[\id].asSymbol]=track; settings[track[\id].asSymbol]=(active:1,voice:track[\program],gain:1.0); duration=duration.max(secondsForTick.(finalTick));
- }); mixBus=Bus.audio(s,2); clock=TempoClock.new(~midiBpm / 60);
+ }); clock=TempoClock.new(~midiBpm / 60);
  // Pbind still owns timing; each event asks FluidSynth to render a sampled GM
  // instrument from the system SoundFont instead of building an oscillator.
  soundfont=NetAddr("127.0.0.1",57130);
@@ -41,7 +41,7 @@ s.waitForBoot({
  };
  stopPlayer={if(player.notNil,{player.stop;player=nil});soundfont.sendMsg("/soundfont/all-notes-off")};
  startPlayer={|at| var patterns; stopPlayer.(); patterns=tracks.values.asArray.select({|track|settings[track[\id].asSymbol][\active]>0}).collect({|track|patternFor.(track,at)}); master.set(\audible,patterns.notEmpty.binaryValue); if(patterns.notEmpty,{player=Ppar(patterns).play(clock,quant:0)})};
- OSCdef(\midiState,{|m|var index=1;while({index<m.size},{var id=m[index].asString.asSymbol;settings[id]=(active:m[index+1].asFloat.clip(0,1),voice:m[index+2].asFloat.clip(0,19),gain:m[index+3].asFloat.clip(0,1.5));index=index+4});if(playing,{var at=currentPosition.();stopPlayer.();startPlayer.(at)})},"/midi/state");
+ OSCdef(\midiState,{|m|var index=1;while({index<m.size},{var id=m[index].asString.asSymbol;settings[id]=(active:m[index+1].asFloat.clip(0,1),voice:m[index+2].asFloat.clip(0,127),gain:m[index+3].asFloat.clip(0,1.5));index=index+4});if(playing,{var at=currentPosition.();stopPlayer.();startPlayer.(at)})},"/midi/state");
  OSCdef(\style,{|m|master.set(\reverb,m[1].asFloat,\drive,m[2].asFloat)},"/mixer/style");
  OSCdef(\speed,{|m|position=currentPosition.();speed=m[1].asFloat.clip(0.5,1.5);clock.tempo=(~midiBpm/60)*speed;changedAt=SystemClock.seconds;if(playing,{startPlayer.(position)})},"/transport/speed");
  OSCdef(\play,{playing=true;changedAt=SystemClock.seconds;clock.tempo=(~midiBpm/60)*speed;startPlayer.(position);master.set(\audible,1)},"/transport/play");
