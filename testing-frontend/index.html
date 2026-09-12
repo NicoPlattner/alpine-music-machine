@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live Stem Mixer</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="eyebrow">SuperCollider playground</p>
+        <h1>Live Stem Mixer</h1>
+        <p class="subtitle">Shape of You · separated stems</p>
+      </div>
+      <div id="engine-status" class="status"><span></span><span id="engine-label">Connecting…</span></div>
+    </header>
+
+    <section class="transport panel">
+      <button id="play" class="round" aria-label="Play" title="Play" disabled>▶</button>
+      <button id="pause" class="round secondary" aria-label="Pause" title="Pause" disabled>Ⅱ</button>
+      <div class="timeline">
+        <input id="position" type="range" min="0" max="238.46" step="0.1" value="0" aria-label="Song position">
+        <div class="times"><span id="elapsed">0:00</span><span id="duration">—</span></div>
+      </div>
+      <button id="connect" class="connect">Connect live audio</button>
+      <audio id="audio" preload="none"></audio>
+    </section>
+
+    <div class="playback-feedback"><span id="playback-status" role="status">Connecting…</span><span id="audio-status" role="status">Audio disconnected</span></div>
+    <p class="latency-note">Controls follow the engine. Live audio has a short buffering delay.</p>
+
+    <section class="panel">
+      <div class="section-title">
+        <div><p class="eyebrow">Instant sound</p><h2>Choose a genre</h2></div>
+        <span id="genre-status">Custom mix</span>
+      </div>
+      <p class="genre-help">Presets reshape stem levels, bass, brightness, space, and dynamics.</p>
+      <div id="genres" class="genres" role="group" aria-label="Genre presets"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">
+        <div><p class="eyebrow">Transport</p><h2>Tempo</h2></div>
+        <output id="speed-value">1.00×</output>
+      </div>
+      <input id="speed" aria-label="Playback speed" class="accent-slider" type="range" min="0.5" max="1.5" step="0.01" value="1">
+      <div class="range-labels"><span>Half speed</span><span>Original</span><span>1.5×</span></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">
+        <div><p class="eyebrow">Mixer</p><h2>Stems</h2></div>
+        <button id="reset" class="text-button">Reset levels</button>
+      </div>
+      <div id="stems" class="stems"></div>
+    </section>
+
+    <p id="message" class="message" role="status"></p>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

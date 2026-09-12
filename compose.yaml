@@ -1,0 +1,46 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      AUDIO_ENGINE_HOST: audio-engine
+      AUDIO_ENGINE_PORT: "57120"
+      STEMS: backing,bass,drums,guitar,vocals
+      SONG_DURATION_SECONDS: "238.4609"
+      AUDIO_PREBUFFER_SECONDS: "3"
+      LYRICS_PATH: /music/lyrics.word-timed.json
+    volumes:
+      - ./tracks/shape-of-you:/music:ro
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    restart: unless-stopped
+
+  audio-engine:
+    build: ./audio-engine
+    environment:
+      BACKEND_INGEST_URL: http://backend:8000/internal/audio
+    volumes:
+      - ./tracks/shape-of-you:/music:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    cap_add:
+      - SYS_NICE
+    shm_size: 256m
+    ulimits:
+      memlock: -1
+      rtprio: 99
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
