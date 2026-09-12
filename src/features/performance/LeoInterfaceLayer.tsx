@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Genre, GenreGesture } from '../motion/handTrackingTypes'
+import { HeartBurstLayer } from './HeartBurstLayer'
 
 interface LeoInterfaceLayerProps {
   currentTime: number
@@ -80,6 +81,7 @@ export function LeoInterfaceLayer({ currentTime, genre, genreGesture, onFinish, 
         ))}
       </div>
       <button type="button" className="leo-finish-hotspot" aria-label="Finish performance" title="Finish performance" onClick={onFinish} />
+      <HeartBurstLayer triggerKey={lyricState?.lineIndex ?? -1} />
     </div>
   )
 }
