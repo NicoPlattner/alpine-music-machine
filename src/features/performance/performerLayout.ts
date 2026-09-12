@@ -8,7 +8,7 @@ export interface PerformerRenderRect { x: number; y: number; width: number; heig
 
 const LEO_CAMERA_FOV = 50
 const LEO_CAMERA_Z = 2.4
-const LEO_ZOOM = 0.9
+const LEO_ZOOM = 1.02
 const LEO_Y_OFFSET = -0.12
 
 export function getPerformerRenderRect(stageWidth: number, stageHeight: number, sourceAspect: number): PerformerRenderRect {
@@ -23,10 +23,11 @@ export function getPerformerRenderRect(stageWidth: number, stageHeight: number, 
   return { x: (stageWidth - width) / 2, y: stageHeight * PERFORMER_VERTICAL_ANCHOR - height / 2, width, height }
 }
 
-/** Screen-space bounds of Leo's Three.js source plane, including its projection and offset. */
+/** Screen-space bounds of Leo's Three.js source plane, including its cover-fit scale, projection and offset. */
 export function getLeoPerformerRenderRect(stageWidth: number, stageHeight: number, sourceAspect: number): PerformerRenderRect {
   const visibleWorldHeight = 2 * LEO_CAMERA_Z * Math.tan(LEO_CAMERA_FOV * Math.PI / 360)
-  const height = stageHeight * (2 * LEO_ZOOM / visibleWorldHeight)
+  const canvasAspect = stageWidth / stageHeight
+  const height = stageHeight * LEO_ZOOM * Math.max(1, canvasAspect / sourceAspect)
   const width = height * sourceAspect
   const centerY = stageHeight * (0.5 - LEO_Y_OFFSET / visibleWorldHeight)
   return { x: (stageWidth - width) / 2, y: centerY - height / 2, width, height }

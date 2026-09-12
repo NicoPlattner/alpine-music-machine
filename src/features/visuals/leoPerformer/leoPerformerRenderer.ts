@@ -9,7 +9,7 @@ export const LEO_POINT_SIZE = 2.3
 export const LEO_DEPTH_SCALE = 0.5
 export const LEO_CAMERA_FOV = 50
 export const LEO_DEMO_CAMERA_Z = 2.4
-export const LEO_ZOOM = 0.9
+export const LEO_ZOOM = 1.02
 export const LEO_Y_OFFSET = -0.12
 export const LEO_TRAIL_LAYERS = 9
 export const LEO_GLOW_OPACITY = 0.6
@@ -47,6 +47,7 @@ export class LeoPerformerRenderer {
   private fpsStartedAt = performance.now()
   private maskForegroundRatio = 0
   private lastMaskCheckAt = 0
+  private readonly sourceAspect: number
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -54,6 +55,7 @@ export class LeoPerformerRenderer {
     private readonly maskSource: HTMLCanvasElement,
     private readonly audioSignal: LeoAudioSignal,
   ) {
+    this.sourceAspect = videoSource.width / Math.max(1, videoSource.height)
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' })
     this.renderer.setClearColor(0x000000, 0)
     this.scene.background = null
@@ -97,7 +99,6 @@ export class LeoPerformerRenderer {
       this.group.add(new THREE.Points(this.pointGeometry, material))
     }
     this.group.position.y = LEO_Y_OFFSET
-    this.group.scale.setScalar(LEO_ZOOM)
     this.scene.add(this.group)
     this.alphaCanvas.width = 64
     this.alphaCanvas.height = 36
@@ -114,7 +115,16 @@ export class LeoPerformerRenderer {
     this.camera.updateProjectionMatrix()
     this.group.position.x = 0
     this.group.position.y = LEO_Y_OFFSET
+    this.group.scale.setScalar(this.coverScale(width / height))
     for (const material of this.trailMaterials) material.uniforms.uPixelRatio.value = pixelRatio
+  }
+
+  private coverScale(canvasAspect: number) {
+    const frustumHeight = 2 * Math.tan(THREE.MathUtils.degToRad(LEO_CAMERA_FOV) / 2) * LEO_DEMO_CAMERA_Z
+    const frustumWidth = frustumHeight * canvasAspect
+    const objectHeight = 2
+    const objectWidth = objectHeight * this.sourceAspect
+    return Math.max(frustumHeight / objectHeight, frustumWidth / objectWidth) * LEO_ZOOM
   }
 
   render(timestamp: number) {

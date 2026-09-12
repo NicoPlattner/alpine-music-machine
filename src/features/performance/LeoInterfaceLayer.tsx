@@ -20,11 +20,11 @@ const lyrics = [
   { time: 32, text: 'replace me when the real lrc data is ready' },
 ]
 const asset = (name: string) => `${import.meta.env.BASE_URL}leo-visual/UI/Wolp/${name}`
-const genreTintBounds: Record<Genre, { x: number; width: number }> = {
-  Pop: { x: 2300, width: 145 },
-  Techno: { x: 2420, width: 145 },
-  Rock: { x: 2540, width: 145 },
-  Ballad: { x: 2660, width: 160 },
+const genreIconAsset: Record<Genre, string> = {
+  Pop: 'pop.svg',
+  Techno: 'techno.svg',
+  Rock: 'rock.svg',
+  Ballad: 'ballad.svg',
 }
 
 export function LeoInterfaceLayer({ currentTime, genre, genreGesture, onFinish, onGenreChange }: LeoInterfaceLayerProps) {
@@ -52,14 +52,15 @@ export function LeoInterfaceLayer({ currentTime, genre, genreGesture, onFinish, 
   return (
     <div className="leo-interface" aria-label="Alpine Sound Machine performance controls">
       <img className="leo-interface-art" src={asset('AlpineSoundMachine.svg')} alt="" />
-      <svg className="leo-genre-tint" viewBox="0 0 3072 1728" preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <clipPath id="leo-selected-genre-column">
-            <rect x={genreTintBounds[genre].x} y="420" width={genreTintBounds[genre].width} height="440" />
-          </clipPath>
-        </defs>
-        <rect className="leo-selected-genre-color" x="0" y="0" width="3072" height="1728" clipPath="url(#leo-selected-genre-column)" />
-      </svg>
+      <div className="leo-genre-icons" aria-hidden="true">
+        {genres.map((item) => (
+          <span
+            key={item}
+            className={`leo-genre-icon${genre === item ? ' selected' : ''}`}
+            style={{ WebkitMaskImage: `url(${asset(genreIconAsset[item])})`, maskImage: `url(${asset(genreIconAsset[item])})` }}
+          />
+        ))}
+      </div>
       <img className="leo-interface-slider" src={asset('slider.svg')} alt="" />
       <img className="leo-interface-frame" src={asset('Frame.svg')} alt="" />
       <img className="leo-wolpertinger" src={asset(wolpertingers[wolpertingerIndex])} alt="Wolpertinger" />
