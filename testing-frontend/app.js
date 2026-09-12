@@ -15,6 +15,8 @@ const editing = new Set();
 const timers = new Map();
 const stemInputs = new Map();
 const genreButtons = new Map();
+const loopItems = new Map();
+const generatedLayerItems = new Map();
 
 const formatTime = (seconds) => {
   const safe = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -64,9 +66,24 @@ function render(next) {
   receivedAt = performance.now();
   backendOnline = true;
   $('#genre-status').textContent = next.genre ? `${genreButtons.get(next.genre)?.textContent || next.genre} preset` : 'Custom mix';
+  $('#loop-key').textContent = `${next.song_key || 'MIDI'} · ${next.song_bpm || 114} BPM`;
   for (const [genre, button] of genreButtons) {
     button.classList.toggle('active', genre === next.genre);
     button.setAttribute('aria-pressed', String(genre === next.genre));
+  }
+  for (const track of next.tracks || []) {
+    let item = loopItems.get(track.id);
+    if (!item) {
+      item = document.createElement('div');
+      item.className = 'loop';
+      item.innerHTML = `<strong></strong><span></span><small></small>`;
+      $('#loops').append(item);
+      loopItems.set(track.id, item);
+    }
+    item.classList.toggle('active', track.active);
+    item.querySelector('strong').textContent = track.name;
+    item.querySelector('span').textContent = track.voice_name;
+    item.querySelector('small').textContent = track.active ? 'Playing for this genre' : 'Muted for this genre';
   }
   position.max = next.duration || 1;
   $('#duration').textContent = formatTime(next.duration);
@@ -74,14 +91,15 @@ function render(next) {
     speed.value = next.speed;
     $('#speed-value').textContent = `${next.speed.toFixed(2)}×`;
   }
-  for (const [name, volume] of Object.entries(next.volumes)) {
+  for (const track of next.tracks || []) {
+    const { id: name, name: labelName, gain: volume } = track;
     if (!stemInputs.has(name)) {
       const item = document.createElement('div');
       item.className = 'stem';
       const label = document.createElement('label');
       const input = document.createElement('input');
       const output = document.createElement('output');
-      label.textContent = name;
+      label.textContent = labelName;
       label.htmlFor = input.id = `stem-${name}`;
       input.type = 'range';
       input.min = 0;
@@ -92,7 +110,7 @@ function render(next) {
       stemInputs.set(name, input);
       bindSlider(input, `volume:${name}`, (value) => { output.textContent = `${Math.round(value * 100)}%`; },
         async (value) => {
-          const next = await api(`/api/stems/${encodeURIComponent(name)}/volume`, { method: 'PUT', body: JSON.stringify({ volume: value }) });
+          const next = await api(`/api/tracks/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify({ gain: value }) });
           return next;
         });
     }
@@ -234,9 +252,9 @@ async function connectAudio(fast = false) {
   audioStatus(fast ? 'Applying edit…' : 'Prebuffering 3 seconds…');
   // A live stream has no shared media timeline. Mixing two connections creates
   // audible echoes and comb filtering, so always retire the old decoder first.
-  audio.pause();
-  audio.removeAttribute('src');
-  audio.load();
+  audio.pause?.();
+  audio.removeAttribute?.('src');
+  audio.load?.();
   const next = audio;
   next.preload = 'auto';
   next.volume = 1;
@@ -266,15 +284,15 @@ $('#connect').addEventListener('click', () => {
   if (!audioWanted) { connectAudio(); return; }
   audioAttempt++;
   audioWanted = false;
-  audio.pause();
-  audio.removeAttribute('src');
-  audio.load();
+  audio.pause?.();
+  audio.removeAttribute?.('src');
+  audio.load?.();
   audioStatus('Audio disconnected');
 });
 
 $('#play').addEventListener('click', () => {
   const restart = state.playing;
-  if (!audioWanted) connectAudio(); // Start inside the browser's user gesture.
+  if (!audioWanted || audio.paused || !audio.getAttribute?.('src')) connectAudio(true);
   mutate(() => api(restart ? '/api/transport/restart' : '/api/transport/play', { method: 'POST' }))
     .then((next) => { if (next && audioWanted && (restart || !audio.src)) connectAudio(true); });
 });
@@ -283,9 +301,9 @@ $('#pause').addEventListener('click', () => {
   // short gain ramp still prevents a click in the encoded stream.
   if (audioWanted) {
     audioAttempt++;
-    audio.pause();
-    audio.removeAttribute('src');
-    audio.load();
+    audio.pause?.();
+    audio.removeAttribute?.('src');
+    audio.load?.();
     audioStatus('Audio paused');
   }
   mutate(() => api('/api/transport/pause', { method: 'POST' }), 'Paused. Buffered audio may continue briefly.');
@@ -299,10 +317,10 @@ $('#reset').addEventListener('click', () => {
   }
   mutate(async () => {
     for (const name of stemInputs.keys()) {
-      await api(`/api/stems/${encodeURIComponent(name)}/volume`, { method: 'PUT', body: JSON.stringify({ volume: 1 }) });
+      await api(`/api/tracks/${encodeURIComponent(name)}`, { method: 'PUT', body: JSON.stringify({ gain: 0.8 }) });
     }
     return api('/api/state');
-  }, 'All stem levels reset to 100%.');
+  }, 'All MIDI track levels reset.');
 });
 
 async function poll() {

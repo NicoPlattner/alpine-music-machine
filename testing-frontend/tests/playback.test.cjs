@@ -8,6 +8,10 @@ class Element {
   setAttribute(name, value) { this[name] = value; }
   append(...children) { this.children.push(...children); children.forEach((el, i) => { el.nextElementSibling = children[i + 1]; }); }
   play() { return Promise.resolve(); }
+  pause() { this.paused = true; }
+  removeAttribute(name) { delete this[name]; }
+  getAttribute(name) { return this[name] || null; }
+  load() {}
 }
 function setup() {
   const elements = new Map();
@@ -28,6 +32,16 @@ function setup() {
   return { context, elements, requests, initial, run: (code) => vm.runInContext(code, context) };
 }
 const flush = () => new Promise(setImmediate);
+test('resume reconnects the decoder cleared by pause', async () => {
+  const app = setup(); await flush();
+  app.run('audioWanted = true; audio.src = "/api/audio/live.mp3"; audio.paused = false');
+  app.elements.get('#pause').events.click(); await flush();
+  app.requests.at(-1).resolve({ ...app.initial, playing: false }); await flush();
+  assert.equal(app.elements.get('#audio').getAttribute('src'), null);
+  app.elements.get('#play').events.click(); await flush();
+  assert.match(app.elements.get('#audio').src, /live.mp3/);
+  app.requests.at(-1).resolve({ ...app.initial, playing: true }); await flush();
+});
 test('seek keeps the selected position through stale polls and commits seconds', async () => {
   const app = setup(); await flush();
   const slider = app.elements.get('#position');

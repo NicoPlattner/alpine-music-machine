@@ -47,6 +47,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer;
 .text-button { background: none; color: var(--muted); font-size: .8rem; }
 .genre-help { margin: 8px 0 20px; color: var(--muted); font-size: .82rem; }
 #genre-status { color: var(--accent); font-size: .82rem; }
+.loops { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+.loop { padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #202223; color: var(--muted); }
+.loop.active { border-color: var(--accent); color: var(--accent); background: rgba(217,255,87,.11); }
+.loop strong, .loop span, .loop small { display: block; }
+.loop strong { color: var(--ink); text-transform: capitalize; margin-bottom: 5px; }
+.loop.active strong { color: var(--accent); }
+.loop span, .loop small { font-size: .72rem; }
+.loop small { margin-top: 7px; }
 .genres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
 .genre { padding: 13px 10px; border: 1px solid var(--line); border-radius: 10px; background: #202223; color: var(--ink); }
 .genre.active { border-color: var(--accent); background: rgba(217,255,87,.11); color: var(--accent); }
@@ -64,6 +72,7 @@ input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer;
   .connect { margin-left: auto; }
   .stems { grid-template-columns: 1fr; }
   .genres { grid-template-columns: repeat(2, 1fr); }
+  .loops { grid-template-columns: 1fr; }
   .stem { display: grid; grid-template-columns: 90px 1fr 45px; align-items: center; gap: 10px; text-align: left; }
   .stem label, .stem output { margin: 0; }
 }

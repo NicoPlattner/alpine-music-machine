@@ -1,97 +1,61 @@
-# Live Stem Mixer
+# MIDI Genre Arranger
 
-A containerized proof of concept for playing synchronized song stems while changing
-tempo (without deliberate pitch shifting) and each stem's volume in real time.
-Eight genre presets (Pop, Rock, Hip-Hop, Electronic, Jazz, Classical, Reggae,
-and Metal) rebalance the stems and apply bass/treble EQ, reverb, and compression.
+This is a live SuperCollider arrangement playground for `Never Gonna Give You
+Up`. It reads the supplied Standard MIDI file, keeps each MIDI instrument track
+separate, and renders enabled tracks through genre-specific SuperCollider voices.
 
-## Run it
+## Run
 
-```bash
+```sh
 docker compose up --build
 ```
 
-Open <http://localhost:8080> and press **Play** to start playback and connect audio.
-While playing, the play button becomes **Restart from beginning**. Use **Pause**
-to pause and **Play** to resume, or drag the timeline to seek. The audio button
-lets you disconnect or reconnect the live stream if needed. Engine position and
-audible playback differ slightly because the live MP3 stream is buffered.
+Open <http://localhost:8080> and press Play. Pop is the default: all 15
+source MIDI parts play with their original instrument families and no added
+master effects. The empty MIDI count-in is trimmed. This is an instrumental
+MIDI rendition, without recorded singing.
+Choose a genre to select the MIDI tracks that
+should play and the synth family they use; adjust individual track levels in the
+mixer. The browser receives the SuperCollider output as a live MP3 stream.
 
-The included Compose setup mounts `./tracks/shape-of-you` read-only into the audio
-engine. All audio processing happens in SuperCollider. The browser receives a live
-MP3 stream through the backend; the files themselves are never exposed by nginx.
+## How MIDI playback works
 
-## Layout
+At container startup, `audio-engine/prepare_midi.py` parses
+`tracks/never-gonna-give-you-up/Never-Gonna-Give-You-Up-1.mid` without an
+external MIDI dependency and writes a compact SuperCollider data file. The
+engine creates one `Pbind` for every MIDI track and combines enabled patterns in
+a `Ppar`. MIDI note onsets, overlapping notes and lengths are retained. Synths
+are placed in a dedicated group before the persistent master effects synth.
 
-```text
-audio-engine/  SuperCollider + JACK + FFmpeg live encoder
-backend/       FastAPI control API and streaming relay
-frontend/      Static test controls served by nginx
-tracks/        One directory per song, containing equal-length stems
-```
+There are four presets: Pop, Ballad, Rock, and Techno. Ballad, Rock and Techno
+choose which source parts play and which SuperCollider voice renders each one.
+The note data is never transposed by a preset.
+
+See [the genre instrumentation table](audio-engine/ARRANGEMENTS.md) for each
+track's assignment. Each instrument has its own synth graph and envelope; one
+genre can use many different instruments.
+
+The tempo slider changes the shared `TempoClock`. That changes scheduling speed,
+not MIDI note numbers, so no pitch correction or Rubber Band time stretching is
+needed. Seeking or changing genres rebuilds the pattern streams from the target
+MIDI beat, including the remaining duration of notes spanning that point. Each
+note frees itself after its remaining duration; no arbitrary short note cap is
+used. Rebuilding the streams preserves the master output and effects.
 
 ## API
 
-- `GET /api/state` — transport and mixer state
-- `GET /api/genres` — available genre presets
-- `GET /api/lyrics/word-timed` — word-level lyric timestamps for the mounted song
-- `PUT /api/genres/{genre}` — apply a genre's stem levels and effects
-- `POST /api/transport/play`
-- `POST /api/transport/pause`
-- `POST /api/transport/restart` — seek to zero and play
-- `PUT /api/transport/speed` with `{ "speed": 1.1 }` (range `0.5..1.5`)
-- `PUT /api/transport/seek` with `{ "position": 30 }` (seconds)
-- `PUT /api/stems/{stem}/volume` with `{ "volume": 0.7 }` (range `0..1.5`)
-- `GET /api/audio/live.mp3` — live audio stream
-- `GET /health`
+- `GET /api/state` — transport and MIDI-track state
+- `GET /api/genres` and `PUT /api/genres/{genre}` — apply an arrangement preset
+- `PUT /api/tracks/{track_id}` with `{ "active": true, "gain": 0.8 }`
+- `POST /api/transport/play`, `/pause`, `/restart`
+- `PUT /api/transport/speed` with `{ "speed": 1.1 }`
+- `PUT /api/transport/seek` with `{ "position": 30 }`
+- `GET /api/audio/live.mp3` — live rendered audio
 
-Interactive API documentation is available at <http://localhost:8000/docs>.
-
-## Adding another song
-
-Put synchronized stereo stems in one directory. Supported formats depend on
-libsndfile; WAV and FLAC are good defaults. Change the `audio-engine` volume in
-`compose.yaml` to mount the desired host directory at `/music`, then update the
-filename list in `audio-engine/engine.scd`. Keep every stem the
-same sample rate, channel count, start point, and duration.
-
-## Time-stretch quality
-
-The engine uses Rubber Band time-stretch processors with `pitchShift = 1`, so changing
-tempo does not transpose the source. Every stem uses the same R3/Finer short-window engine and linked
-stereo channels. Tempo, start, and seek commands are timestamped together.
-Each instrument has its own smoothed gain after stretching, including complete mute.
-The pinned native wrapper is vendored in `audio-engine/RubberBand.cpp`: it feeds input
-until a full output block is available (avoiding injected silence), and finalizes input
-to drain the end of the song correctly.
-No pre-rendered tempo bank is needed; speed changes remain live. Pause freezes the processor
-and fades the master to silence.
-
-Large tempo changes can still sound processed, especially cymbal tails or artifacts
-already present in separated stems. Start around 0.8–1.2× when judging quality.
-Stretch analysis buffers and the live MP3 stream delay when a change becomes audible;
-the API position remains a wall-clock estimate, not an audio-engine acknowledgement.
-
-The JACK dummy device uses an 8192-sample period, synchronous processing and ordinary scheduling for Docker.
-The plugin links Ubuntu's optimized Rubber Band library instead of compiling the basic
-single-file FFT implementation. Engine and encoder buffering still add control latency.
-
-For a production application, add authentication, persistent song metadata,
-engine acknowledgements, and a streaming server/WebRTC layer. HTTP MP3 is simple
-and useful for this test UI. The relay prebuffers three seconds for each new browser
-connection to absorb short network or scheduler stalls. Volume and speed adjustments keep
-one decoder connected: overlapping MP3 connections have different song positions and cause
-echoes and phase cancellation. Seek/restart replaces the stream without overlapping it.
-Edits become audible after the existing buffer. This is a live MP3 relay, not a timestamped
-segment renderer; it cannot provide both instant edits and long look-ahead buffering.
-
-Regression checks (run after building):
+Run the backend checks with:
 
 ```sh
-docker compose run --rm --no-deps --entrypoint python3 audio-engine /engine/tests/pitch.py
-docker compose exec -T audio-engine python3 - < audio-engine/tests/live.py
+docker compose run --rm --no-deps -v "$PWD/backend/tests:/app/tests:ro" backend python -m unittest discover -s tests
+node --test testing-frontend/tests/playback.test.cjs
+docker compose exec -T audio-engine python3 - < audio-engine/tests/midi_live.py
 ```
-
-The first renders 55 Hz and 440 Hz references through the actual native SC plugin at
-0.5, 0.75, 1, 1.25, and 1.5x and checks pitch within five cents, output duration and
-dropouts. The second tests each song stem solo/muted, tempo changes and pause silence.

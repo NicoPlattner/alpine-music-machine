@@ -9,9 +9,10 @@ backend_url="${BACKEND_INGEST_URL:-http://backend:8000/internal/audio}"
 # Docker restarts preserve /tmp inside the same container. Never accept a
 # readiness marker written by a previous SuperCollider process.
 rm -f /tmp/mixer-ready
+python3 /engine/prepare_midi.py /music/Never-Gonna-Give-You-Up-1.mid /tmp/midi-arrangement.scd
 
-# Leave CPU headroom for five R3 stretchers; match the dummy clock to 48 kHz.
-jackd --sync --no-realtime -d dummy -r 48000 -p 8192 -w 170667 &
+# MIDI scheduling uses a 21 ms audio period at 48 kHz.
+jackd --sync --no-realtime -d dummy -r 48000 -p 1024 -w 21333 &
 jack_pid=$!
 
 sclang_pid=""
@@ -30,7 +31,7 @@ for _ in $(seq 1 50); do
 done
 jack_lsp >/dev/null 2>&1 || { echo 'JACK failed to start' >&2; exit 1; }
 
-sclang -D -u 57120 /engine/engine.scd &
+sclang -D -r -u 57120 /engine/engine.scd &
 sclang_pid=$!
 
 for _ in $(seq 1 600); do

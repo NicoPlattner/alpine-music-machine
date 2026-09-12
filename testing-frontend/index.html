@@ -12,7 +12,7 @@
       <div>
         <p class="eyebrow">SuperCollider playground</p>
         <h1>Live Stem Mixer</h1>
-        <p class="subtitle">Shape of You · separated stems</p>
+        <p class="subtitle">Never Gonna Give You Up · MIDI arrangement</p>
       </div>
       <div id="engine-status" class="status"><span></span><span id="engine-label">Connecting…</span></div>
     </header>
@@ -36,8 +36,17 @@
         <div><p class="eyebrow">Instant sound</p><h2>Choose a genre</h2></div>
         <span id="genre-status">Custom mix</span>
       </div>
-      <p class="genre-help">Presets reshape stem levels, bass, brightness, space, and dynamics.</p>
+      <p class="genre-help">Presets choose MIDI parts and SuperCollider instrument voices.</p>
       <div id="genres" class="genres" role="group" aria-label="Genre presets"></div>
+    </section>
+
+    <section class="panel">
+      <div class="section-title">
+        <div><p class="eyebrow">MIDI arrangement</p><h2>Instrument tracks</h2></div>
+        <span id="loop-key">MIDI · 114 BPM</span>
+      </div>
+      <p class="genre-help">Each original MIDI instrument track can be enabled per genre and played with a genre-specific SuperCollider voice.</p>
+      <div id="loops" class="loops" aria-live="polite"></div>
     </section>
 
     <section class="panel">
@@ -51,7 +60,7 @@
 
     <section class="panel">
       <div class="section-title">
-        <div><p class="eyebrow">Mixer</p><h2>Stems</h2></div>
+        <div><p class="eyebrow">Mixer</p><h2>Track levels</h2></div>
         <button id="reset" class="text-button">Reset levels</button>
       </div>
       <div id="stems" class="stems"></div>

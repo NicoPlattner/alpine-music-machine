@@ -214,8 +214,11 @@ private:
 
         GET_BUF
 
-        // --- Handle trigger: positive transition resets playback ---
-        if (trigVal > 0.f && prevTrig <= 0.f) {
+        // --- Handle trigger: a new non-zero trigger value resets playback ---
+        // Control-rate OSC clients cannot reliably send a one-block impulse.
+        // A monotonically increasing trigger id therefore makes repeated seeks
+        // deterministic without requiring an intervening zero control value.
+        if (trigVal > 0.f && trigVal != prevTrig) {
             // Clamp startPos into buffer range
             playheadPos = std::max(0, std::min(startP, (int)bufFrames - 1));
             playbackDone = false;
