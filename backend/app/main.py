@@ -1,8 +1,13 @@
+from __future__ import annotations
+
 import asyncio
+import json
 import os
 import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
@@ -15,6 +20,7 @@ ENGINE_PORT = int(os.getenv("AUDIO_ENGINE_PORT", "57120"))
 DURATION = float(os.getenv("SONG_DURATION_SECONDS", "209.797149"))
 SONG_BPM = float(os.getenv("SONG_BPM", "114"))
 PREBUFFER_SECONDS = float(os.getenv("AUDIO_PREBUFFER_SECONDS", "3"))
+LYRICS_PATH = Path(os.getenv("LYRICS_PATH", "/music/lyrics.word-timed.json"))
 
 TRACKS = (
     ("track-1", "E. Piano 2"), ("track-2", "Synth Bass 2"), ("track-3", "Clean Guitar"),
@@ -109,9 +115,20 @@ def response_state():
         state.position=DURATION; state.playing=False; state.changed_at=time.monotonic(); send_osc("/transport/pause")
     return {"playing":state.playing,"speed":state.speed,"position":state.current_position(),"duration":DURATION,"genre":state.genre,"audio_connected":relay.encoder_connected,"song_bpm":SONG_BPM,"song_key":"MIDI note data","tracks":[{"id":tid,"name":name,**state.tracks[tid],"voice_name":instrument_label(tid,state.tracks[tid]["voice"])} for tid,name in TRACKS]}
 
+def word_timed_lyrics():
+    try:
+        payload = json.loads(LYRICS_PATH.read_text(encoding="utf-8"))
+    except FileNotFoundError as error:
+        raise HTTPException(404, "Word-timed lyrics are not available for this song") from error
+    except json.JSONDecodeError as error:
+        raise HTTPException(500, "Word-timed lyrics are invalid JSON") from error
+    if not isinstance(payload, dict) or not isinstance(payload.get("words"), list):
+        raise HTTPException(500, "Word-timed lyrics must contain a words array")
+    return payload
+
 class SpeedChange(BaseModel): speed: float=Field(ge=.5,le=1.5)
 class SeekChange(BaseModel): position: float=Field(ge=0)
-class TrackChange(BaseModel): active: bool | None=None; gain: float | None=Field(default=None,ge=0,le=1.5)
+class TrackChange(BaseModel): active: Optional[bool]=None; gain: Optional[float]=Field(default=None,ge=0,le=1.5)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI): yield
@@ -122,6 +139,8 @@ async def health(): return {"status":"ok","audio_connected":relay.encoder_connec
 async def get_state(): return response_state()
 @app.get("/api/genres")
 async def genres(): return [{"id":key,"label":value[0]} for key,value in GENRE_PRESETS.items()]
+@app.get("/api/lyrics/word-timed")
+async def get_word_timed_lyrics(): return word_timed_lyrics()
 @app.put("/api/genres/{genre}")
 async def apply_genre(genre: str):
     preset=GENRE_PRESETS.get(genre.lower())
