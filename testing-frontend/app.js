@@ -85,7 +85,7 @@ function render(next) {
     item.querySelector('span').textContent = track.voice_name;
     item.querySelector('small').textContent = track.active ? 'Playing for this genre' : 'Muted for this genre';
   }
-  position.max = next.duration || 1;
+  position.max = next.duration || 1;a
   $('#duration').textContent = formatTime(next.duration);
   if (!editing.has('speed')) {
     speed.value = next.speed;
