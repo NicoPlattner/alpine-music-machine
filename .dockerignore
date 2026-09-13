@@ -1,5 +1,9 @@
 .git
 .gitignore
+node_modules
+dist
+*.tsbuildinfo
+.env*.local
 **/__pycache__
 **/.pytest_cache
 tracks/**

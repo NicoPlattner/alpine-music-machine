@@ -73,7 +73,12 @@ separate, and renders enabled tracks through genre-specific SuperCollider voices
 docker compose up --build
 ```
 
-Open <http://localhost:8080> and press Play. Pop is the default: all 15
+Open <http://localhost:8080> to use the full React karaoke application. The
+frontend container serves the production Vite build and proxies `/api` and the
+continuous MP3 stream to FastAPI inside the Compose network, so no separate
+frontend development server is required.
+
+Pop is the default: all 15
 source MIDI parts play with their exact embedded General MIDI programs and no
 added master effects. The empty MIDI count-in is trimmed. This is an instrumental
 MIDI rendition, without recorded singing.
