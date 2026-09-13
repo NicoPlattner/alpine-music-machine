@@ -25,7 +25,7 @@
 .results-content { position: relative; z-index: 2; display: flex; min-height: calc(100vh - clamp(136px, 16vh, 192px)); flex-direction: column; align-items: center; justify-content: center; }
 .results-page header { margin: 0 0 clamp(28px, 4vh, 48px); text-align: center; }
 .results-wolpertinger { position: absolute; z-index: 1; bottom: 1.2vh; left: .8vw; width: min(29vw, 440px); height: auto; pointer-events: none; }
-.results-stats { display: grid; width: min(880px, 75vw); grid-template-columns: 1.35fr 1fr 1fr; gap: 14px; margin: 0 0 34px; border: 0; }
+.results-stats { display: grid; width: min(1100px, 82vw); grid-template-columns: 1.35fr repeat(3, 1fr); gap: 14px; margin: 0 0 34px; border: 0; }
 .results-stats div { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border: 5px solid #dddeda; border-radius: 12px; background: #080808; text-align: center; }
 .results-stats div + div { border-left: 5px solid #dddeda; }
 .results-stats .score-main { border-color: #f5afce; }

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useDeviceStore } from '../device/deviceStore'
 import type { DeviceStatus } from '../device/deviceTypes'
 
-export function usePerformanceCamera() {
+export function usePerformanceCamera(enabled = true) {
   const cameraDeviceId = useDeviceStore((state) => state.cameraDeviceId)
   const cameraEnabled = useDeviceStore((state) => state.cameraEnabled)
   const updateDeviceConfig = useDeviceStore((state) => state.updateDeviceConfig)
@@ -19,7 +19,7 @@ export function usePerformanceCamera() {
       streamRef.current = null
     }
 
-    if (!cameraEnabled || !navigator.mediaDevices?.getUserMedia) {
+    if (!enabled || !cameraEnabled || !navigator.mediaDevices?.getUserMedia) {
       setStatus('unavailable')
       return stopStream
     }
@@ -63,7 +63,7 @@ export function usePerformanceCamera() {
       active = false
       stopStream()
     }
-  }, [cameraDeviceId, cameraEnabled, updateDeviceConfig])
+  }, [cameraDeviceId, cameraEnabled, enabled, updateDeviceConfig])
 
   return { stream, status }
 }

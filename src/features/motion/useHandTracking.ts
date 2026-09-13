@@ -21,12 +21,12 @@ export function getPhysicalHandedness(reportedHandedness: Handedness): Handednes
   return reportedHandedness
 }
 
-export function useHandTracking(video: HTMLVideoElement | null): HandTrackingState {
+export function useHandTracking(video: HTMLVideoElement | null, enabled = true): HandTrackingState {
   const [state, setState] = useState(initialState)
   const animationFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!video) { setState(initialState); return }
+    if (!enabled || !video) { setState(initialState); return }
     let active = true
     let landmarker: HandLandmarker | null = null
     let lastInferenceAt = 0
@@ -100,7 +100,7 @@ export function useHandTracking(video: HTMLVideoElement | null): HandTrackingSta
     }
     void initialize()
     return () => { active = false; if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current); animationFrameRef.current = null; try { landmarker?.close() } catch { /* MediaPipe cleanup must not abort navigation. */ } }
-  }, [video])
+  }, [enabled, video])
 
   return state
 }

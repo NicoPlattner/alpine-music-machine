@@ -38,13 +38,25 @@
 .leo-genre-icons { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .leo-genre-icon { position: absolute; inset: 0; width: 100%; height: 100%; background-color: #fff; -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-size: 100% 100%; mask-size: 100% 100%; mask-mode: alpha; }
 .leo-genre-icon.selected { background-color: #f5afce; }
-.leo-interface-slider { position: absolute; z-index: 2; top: 81.9%; left: 76.5%; width: auto; height: 5vh; transform: translate(-50%, -50%); pointer-events: none; }
+.leo-side-progress.song-progress { position: absolute; z-index: 7; top: 81.9%; left: 76.5%; width: 13.5%; height: 5vh; transform: translateY(-50%); pointer-events: auto; }
+.leo-side-progress .progress-path { position: absolute; inset: 0; width: 100%; padding: 0; border: 0; background: transparent; cursor: pointer; }
+.leo-side-progress .progress-travelled { display: none; }
+.leo-side-progress .progress-marker { position: absolute; top: 50%; width: auto; height: 5vh; transform: translate(-50%, -50%); pointer-events: none; }
+.leo-side-progress .progress-path:focus-visible { outline: 4px dashed #f5afce; outline-offset: 3px; }
+.leo-side-progress .progress-path:disabled { cursor: not-allowed; opacity: .45; }
 .leo-wolpertinger { position: absolute; z-index: 4; bottom: 1.16vh; left: .65vw; width: 24.41vw; height: auto; pointer-events: none; }
+.wolpertinger-emotion-art { animation: wolpertinger-emotion-in 260ms ease-out both; }
+@keyframes wolpertinger-emotion-in { from { opacity: .35; transform: scale(.97); } to { opacity: 1; transform: scale(1); } }
 .leo-score { position: absolute; z-index: 5; top: 8%; left: 50%; margin: 0; transform: translate(-50%, -50%); color: #f5afce; font-family: 'Londrina Solid', cursive; font-size: clamp(64px, 7.82vw, 120px); line-height: 1; -webkit-text-stroke: clamp(6px, .78vw, 12px) #000; paint-order: stroke fill; pointer-events: none; }
+.karaoke-score-feedback { position: absolute; z-index: 8; left: 19%; bottom: 20%; margin: 0; color: #f7f2b9; font-family: 'Londrina Solid', cursive; font-size: clamp(30px, 3.3vw, 50px); -webkit-text-stroke: 5px #231f20; paint-order: stroke fill; pointer-events: none; animation: karaoke-score-pop 1100ms ease-out both; }
+.karaoke-score-feedback.award-10 { color: #f5afce; font-size: clamp(42px, 4.7vw, 72px); }
+.karaoke-score-feedback.award-0 { color: #dddeda; font-size: clamp(20px, 2vw, 30px); opacity: .75; }
+@keyframes karaoke-score-pop { 0% { opacity: 0; transform: translateY(12px) scale(.8); } 20% { opacity: 1; transform: translateY(0) scale(1.08); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-18px) scale(1); } }
 
 .leo-lyrics { position: absolute; z-index: 6; bottom: 14%; left: 50%; width: min(64vw, 900px); transform: translateX(-50%); color: #fff; font-family: 'Londrina Solid', cursive; line-height: 1.05; text-align: center; -webkit-text-stroke: clamp(4px, .55vw, 8px) #231f20; paint-order: stroke fill; pointer-events: none; }
-.karaoke-current-line { display: flex; flex-wrap: wrap; justify-content: center; gap: .32em; min-height: 1.05em; font-size: clamp(28px, 2.87vw, 44px); }
-.karaoke-next-line { margin-top: .35em; font-size: clamp(19px, 1.65vw, 26px); opacity: .68; }
+.karaoke-current-line { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12em; min-height: 1.05em; font-size: clamp(28px, 2.87vw, 44px); }
+.karaoke-next-line { display: flex; flex-direction: column; align-items: center; margin-top: .35em; font-size: clamp(19px, 1.65vw, 26px); opacity: .68; }
+.karaoke-lyric-row { display: flex; flex-wrap: wrap; justify-content: center; gap: .32em; }
 .karaoke-word { transition: color 150ms ease; }
 .karaoke-word.past { color: #f5afce; }
 .karaoke-word.active { color: #f7f2b9; }
@@ -58,6 +70,21 @@
 .leo-genre-controls button.pending { background: rgb(245 175 206 / 14%); animation: leo-pending-pulse 800ms ease-in-out infinite alternate; }
 .leo-genre-icon.gesture-applied { filter: drop-shadow(0 0 12px #f5afce); }
 @keyframes leo-pending-pulse { to { background: rgb(245 175 206 / 34%); } }
+.leo-side-transport { position: absolute; z-index: 8; top: 65.5%; left: 74.5%; right: 7.5%; display: flex; align-items: flex-start; justify-content: space-evenly; gap: clamp(8px, .7vw, 12px); transform: translateY(-50%); pointer-events: auto; }
+.leo-side-control { --control-shift-x: 0; display: flex; flex-direction: column; align-items: center; gap: .55vh; width: clamp(62px, 6.7vw, 104px); padding: 0; border: 0; color: #f7f2b9; background: transparent; font: 700 clamp(13px, 1.15vw, 18px)/1 'Londrina Solid', cursive; cursor: pointer; transition: transform 180ms cubic-bezier(.22, 1, .36, 1), opacity 180ms ease; }
+.leo-side-control-icon { position: relative; display: grid; place-items: center; width: clamp(48px, 5vw, 78px); aspect-ratio: 1; border: clamp(2px, .2vw, 3px) solid #f7f2b9; border-radius: 43% 57% 48% 52% / 56% 45% 55% 44%; background: #f5afce; }
+.leo-side-play { transform: translateX(var(--control-shift-x)) rotate(-2deg); }
+.leo-side-restart { --control-shift-x: -1.5vw; transform: translateX(var(--control-shift-x)) rotate(2deg); }
+.leo-side-play-icon { transform: rotate(-4deg) skewX(1deg); }
+.leo-side-play-icon > i { display: block; width: 0; height: 0; margin-left: 8%; border-top: clamp(10px, 1.15vw, 18px) solid transparent; border-bottom: clamp(10px, 1.15vw, 18px) solid transparent; border-left: clamp(16px, 1.7vw, 27px) solid #231f20; }
+.leo-side-play.playing .leo-side-play-icon { display: flex; justify-content: center; gap: clamp(7px, .65vw, 10px); }
+.leo-side-play.playing .leo-side-play-icon > i { width: clamp(7px, .65vw, 10px); height: clamp(23px, 2.35vw, 36px); margin: 0; border: 0; background: #231f20; }
+.leo-side-restart-icon { border-radius: 56% 44% 54% 46% / 47% 55% 45% 53%; transform: rotate(5deg); color: #231f20; font: 700 clamp(30px, 3vw, 46px)/1 system-ui, sans-serif; }
+.leo-side-control-label { margin-top: 4px; letter-spacing: .02em; -webkit-text-stroke: 3px #231f20; paint-order: stroke fill; }
+.leo-side-control:hover:not(:disabled) { transform: translateX(var(--control-shift-x)) rotate(0) scale(1.06); }
+.leo-side-control:active:not(:disabled) { transform: translateX(var(--control-shift-x)) rotate(0) scale(.96); }
+.leo-side-control:focus-visible { outline: 4px dashed #f5afce; outline-offset: 6px; }
+.leo-side-control:disabled { opacity: .38; cursor: not-allowed; }
 .leo-finish-hotspot { position: absolute; z-index: 8; top: 0; right: 0; width: 15%; height: 15%; padding: 0; border: 0; background: transparent; pointer-events: auto; cursor: pointer; }
 .leo-finish-hotspot:focus-visible { outline: 5px solid #f5afce; outline-offset: -12px; }
 
@@ -69,13 +96,6 @@
   75% { opacity: 1; }
   100% { transform: translate(calc(-50% + var(--dx)), calc(-50% - var(--rise))) scale(var(--scale)) rotate(var(--rot)); opacity: 0; }
 }
-.leo-transport { position: absolute; z-index: 9; left: 25%; right: 20%; bottom: 2.5%; display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 10px; color: #fff; background: rgb(35 31 32 / 78%); pointer-events: auto; }
-.leo-transport > button { display: grid; place-items: center; width: 36px; height: 32px; flex: 0 0 auto; border: 0; border-radius: 999px; color: #231f20; background: #f5afce; font: 700 1rem/1 system-ui, sans-serif; }
-.leo-transport > button:disabled { opacity: .45; cursor: not-allowed; }
-.leo-transport .song-progress { position: static; display: grid; grid-template-columns: 34px minmax(100px, 1fr) 34px; align-items: center; gap: 8px; width: 100%; color: #fff; font: 600 .72rem/1 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
-.leo-transport .progress-path { position: relative; height: 28px; padding: 0; border: 0; background: transparent; cursor: pointer; }
-.leo-transport .progress-path::before { content: ''; position: absolute; inset: 12px 0 auto; height: 4px; border-radius: 999px; background: rgb(255 255 255 / 34%); }
-.leo-transport .progress-travelled { position: absolute; z-index: 1; left: 0; top: 12px; height: 4px; border-radius: 999px; background: #f5afce; }
 .leo-backend-status,
 .leo-gesture-confirmation { position: absolute; z-index: 50; left: 50%; bottom: 8.5%; margin: 0; padding: 7px 12px; transform: translateX(-50%); color: #fff; background: rgb(35 31 32 / 88%); font: 600 .8rem/1.2 system-ui, sans-serif; pointer-events: none; }
 .leo-enable-audio { position: absolute; z-index: 50; left: 50%; bottom: 8.5%; min-height: 40px; padding: 0 18px; border: 0; border-radius: 999px; transform: translateX(-50%); color: #231f20; background: #f5afce; font: 700 .9rem/1 system-ui, sans-serif; pointer-events: auto; }
@@ -105,5 +125,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .karaoke-word,
-  .leo-genre-controls button.pending { animation: none; }
+  .leo-genre-controls button.pending,
+  .karaoke-score-feedback,
+  .wolpertinger-emotion-art { animation: none; }
+  .leo-side-control { transition: none; }
 }

@@ -12,7 +12,7 @@ let performanceSessionStarted = false
 let sessionReleaseTimer: number | null = null
 
 type ConnectionStatus = 'loading' | 'connected' | 'unavailable'
-export type AudioStreamStatus = 'loading' | 'playing' | 'blocked' | 'error'
+export type AudioStreamStatus = 'loading' | 'playing' | 'paused' | 'blocked' | 'error'
 
 export function useAudioBackend() {
   const [state, setState] = useState<BackendState | null>(null)
@@ -82,6 +82,17 @@ export function useAudioBackend() {
     }
   }, [])
 
+  const reconnectAudio = useCallback(async () => {
+    const audio = audioRef.current
+    if (!audio) return false
+    audio.pause()
+    // A paused live response keeps accumulating stale MP3 data. Reconnect so
+    // resumed playback starts at the relay's live edge instead of old audio.
+    audio.src = `${audioApi.getLiveAudioUrl(0.25)}&connection=${Date.now()}`
+    audio.load()
+    return enableAudio()
+  }, [enableAudio])
+
   const selectGenre = useCallback(async (genre: MusicGenre, source: 'button' | 'gesture' = 'button') => {
     if (pendingGenreRef.current === genre || state?.genre === genre || connectionStatus === 'unavailable') return null
     pendingGenreRef.current = genre
@@ -99,16 +110,24 @@ export function useAudioBackend() {
     return next
   }, [connectionStatus, runCommand, state?.genre])
 
-  const runTransport = useCallback(async (command: (signal: AbortSignal) => Promise<BackendState>, ensureAudio = false) => {
+  const runTransport = useCallback(async (
+    command: (signal: AbortSignal) => Promise<BackendState>,
+    audioAction: 'none' | 'pause' | 'reconnect' = 'none',
+  ) => {
     if (transportPendingRef.current) return null
     transportPendingRef.current = true
     setTransportPending(true)
+    if (audioAction === 'pause') {
+      audioRef.current?.pause()
+      setAudioStreamStatus('paused')
+    }
     const result = await runCommand(command)
-    if (ensureAudio) void enableAudio()
+    if (result && audioAction === 'reconnect') void reconnectAudio()
+    if (!result && audioAction === 'pause') void enableAudio()
     transportPendingRef.current = false
     if (mountedRef.current) setTransportPending(false)
     return result
-  }, [enableAudio, runCommand])
+  }, [enableAudio, reconnectAudio, runCommand])
 
   useEffect(() => {
     if (!state) {
@@ -222,13 +241,13 @@ export function useAudioBackend() {
 
   return {
     state, estimatedPlaybackPosition, genres, originalGenre, connectionStatus, error, pendingGenre, gestureFeedback, transportPending,
-    audioStreamStatus, audioRef, liveAudioUrl: audioApi.getLiveAudioUrl(3), enableAudio, selectGenre,
+    audioStreamStatus, audioRef, liveAudioUrl: audioApi.getLiveAudioUrl(0.25), enableAudio, selectGenre,
     onAudioPlaying: () => setAudioStreamStatus('playing'),
     onAudioWaiting: () => setAudioStreamStatus('loading'),
     onAudioError: () => setAudioStreamStatus('error'),
-    play: () => runTransport(audioApi.play, true),
-    pause: () => runTransport(audioApi.pause),
-    restart: () => runTransport(audioApi.restart, true),
+    play: () => runTransport(audioApi.play, 'reconnect'),
+    pause: () => runTransport(audioApi.pause, 'pause'),
+    restart: () => runTransport(audioApi.restart, 'reconnect'),
     seek, setSpeed,
   }
 }

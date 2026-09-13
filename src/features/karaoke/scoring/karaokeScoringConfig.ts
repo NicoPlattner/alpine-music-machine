@@ -1,0 +1,9 @@
+export const SCORING_INTERVAL_MS = 3000
+export const SCORE_MIN_LEVEL = 0.018
+export const SCORE_STRONG_LEVEL = 0.04
+export const SCORE_MIN_CLARITY = 0.9
+export const SCORE_STRONG_CLARITY = 0.95
+export const SCORE_MIN_VALID_PITCH_RATIO = 0.2
+export const SCORE_STRONG_VALID_PITCH_RATIO = 0.65
+export const ZERO_WINDOWS_BEFORE_STREAK_RESET = 3
+export const HEARTS_TEN_STREAK_TARGET = 3

@@ -43,7 +43,7 @@ const emptyMotion: Omit<FrameMotionSample, 'sampleTimestamp'> = {
   motionSampleIntervalMs: 0,
 }
 
-export function useFrameMotionPlayback(originalPlaybackRate: number) {
+export function useFrameMotionPlayback(originalPlaybackRate: number, enabled = true) {
   const [movementSpeedEnabled, setMovementSpeedEnabled] = useState(false)
   const detectorRef = useRef<FrameMotionDetector | null>(null)
   const lastMotionFrameAtRef = useRef(0)
@@ -62,6 +62,10 @@ export function useFrameMotionPlayback(originalPlaybackRate: number) {
   })
 
   useEffect(() => {
+    if (!enabled) {
+      detectorRef.current = null
+      return
+    }
     detectorRef.current = new FrameMotionDetector()
     metricsRef.current = emptyMotion
     currentRateRef.current = originalPlaybackRate
@@ -69,9 +73,10 @@ export function useFrameMotionPlayback(originalPlaybackRate: number) {
     lastMotionFrameAtRef.current = 0
     segmentationLostAtRef.current = null
     return () => { detectorRef.current = null }
-  }, [originalPlaybackRate])
+  }, [enabled, originalPlaybackRate])
 
   const analyzeSegmentedFrame = useCallback((frame: HTMLCanvasElement, timestamp: number) => {
+    if (!enabled) return
     const sample = detectorRef.current?.analyze(frame, timestamp)
     if (!sample) return
     lastMotionFrameAtRef.current = timestamp
@@ -81,9 +86,10 @@ export function useFrameMotionPlayback(originalPlaybackRate: number) {
     targetRateRef.current = movementSpeedEnabled && sample.calibrationStatus === 'ready'
       ? mapFrameMotionToPlaybackRate(sample.motionScore, originalPlaybackRate)
       : originalPlaybackRate
-  }, [movementSpeedEnabled, originalPlaybackRate])
+  }, [enabled, movementSpeedEnabled, originalPlaybackRate])
 
   useEffect(() => {
+    if (!enabled) return
     let animationFrame = 0
     const update = (now: number) => {
       const framesStale = lastMotionFrameAtRef.current > 0 && now - lastMotionFrameAtRef.current > SEGMENTATION_STALE_MS
@@ -115,7 +121,7 @@ export function useFrameMotionPlayback(originalPlaybackRate: number) {
     }
     animationFrame = requestAnimationFrame(update)
     return () => cancelAnimationFrame(animationFrame)
-  }, [movementSpeedEnabled, originalPlaybackRate])
+  }, [enabled, movementSpeedEnabled, originalPlaybackRate])
 
   const toggleMovementSpeed = useCallback(() => setMovementSpeedEnabled((enabled) => !enabled), [])
   const recalibrateMovement = useCallback(() => {

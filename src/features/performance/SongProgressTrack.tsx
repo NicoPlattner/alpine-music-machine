@@ -3,6 +3,8 @@ interface SongProgressTrackProps {
   currentTime: number
   duration: number
   markerUrl?: string
+  className?: string
+  showTimes?: boolean
   disabled?: boolean
   onSeek?: (position: number) => void
 }
@@ -12,7 +14,7 @@ export const formatPlaybackTime = (seconds: number) => {
   return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, '0')}`
 }
 
-export function SongProgressTrack({ progress, currentTime, duration, markerUrl, disabled, onSeek }: SongProgressTrackProps) {
+export function SongProgressTrack({ progress, currentTime, duration, markerUrl, className, showTimes = true, disabled, onSeek }: SongProgressTrackProps) {
   const safeProgress = Math.min(1, Math.max(0, progress))
   const commitSeek = (event: PointerEvent<HTMLButtonElement>) => {
     if (!onSeek || disabled || duration <= 0) return
@@ -21,13 +23,13 @@ export function SongProgressTrack({ progress, currentTime, duration, markerUrl, 
     onSeek(ratio * duration)
   }
   return (
-    <div className="song-progress">
-      <time>{formatPlaybackTime(currentTime)}</time>
+    <div className={`song-progress${className ? ` ${className}` : ''}`}>
+      {showTimes && <time>{formatPlaybackTime(currentTime)}</time>}
       <button type="button" className="progress-path" aria-label="Seek in song" disabled={disabled || duration <= 0} onPointerUp={commitSeek}>
         <span className="progress-travelled" style={{ width: `${safeProgress * 100}%` }} />
         {markerUrl && <img className="progress-marker" src={markerUrl} style={{ left: `${safeProgress * 100}%` }} alt="" />}
       </button>
-      <time>{formatPlaybackTime(duration)}</time>
+      {showTimes && <time>{formatPlaybackTime(duration)}</time>}
     </div>
   )
 }

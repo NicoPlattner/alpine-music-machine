@@ -7,3 +7,4 @@ vite.config.d.ts
 tracks/*
 __pycache__/
 *.py[cod]
+.env*.local

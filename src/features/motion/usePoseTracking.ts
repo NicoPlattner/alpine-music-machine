@@ -9,12 +9,12 @@ const MAX_INPUT_DIMENSION = 320
 const MIN_VISIBILITY = 0.35
 const initialState: PoseTrackingState = { status: 'idle', frame: null, fps: 0, errorMessage: null }
 
-export function usePoseTracking(video: HTMLVideoElement | null): PoseTrackingState {
+export function usePoseTracking(video: HTMLVideoElement | null, enabled = true): PoseTrackingState {
   const [state, setState] = useState(initialState)
   const animationFrameRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (!video) { setState(initialState); return }
+    if (!enabled || !video) { setState(initialState); return }
     let active = true
     let landmarker: PoseLandmarker | null = null
     let lastInferenceAt = 0
@@ -76,7 +76,7 @@ export function usePoseTracking(video: HTMLVideoElement | null): PoseTrackingSta
     }
     void initialize()
     return () => { active = false; if (animationFrameRef.current !== null) cancelAnimationFrame(animationFrameRef.current); animationFrameRef.current = null; try { landmarker?.close() } catch { /* MediaPipe cleanup must not abort navigation. */ } }
-  }, [video])
+  }, [enabled, video])
 
   return state
 }

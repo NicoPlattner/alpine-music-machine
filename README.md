@@ -28,6 +28,11 @@ a neutral empty state. Developers can opt into a two-line nonsense fixture with
 routed to speakers. Pitch-based scoring still requires Nico's timed lyrics and
 reference vocal melody/pitch data.
 
+For lightweight karaoke testing, set `VITE_KARAOKE_ONLY_MODE=true` in
+`.env.local`. This retains backend audio, real lyrics, microphone analysis,
+transport, and manual genre controls while disabling the camera, segmentation,
+MediaPipe, motion analysis, genre gestures, and point-cloud rendering.
+
 ## Architecture
 
 - `src/app` — application shell and routes

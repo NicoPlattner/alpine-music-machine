@@ -13,8 +13,8 @@ interface HeartParticle {
 }
 
 interface HeartBurstLayerProps {
-  /** Any value that changes to trigger a new burst (e.g. the active lyric line index). Negative values are ignored. */
-  triggerKey: number
+  /** Monotonically increasing score-combo event count. Resets are ignored. */
+  triggerCount: number
 }
 
 const HEART_ASSET = `${import.meta.env.BASE_URL}leo-visual/UI/Wolp/heart_points.svg`
@@ -38,17 +38,19 @@ function createHeartBurst(nextId: () => number): HeartParticle[] {
   })
 }
 
-export function HeartBurstLayer({ triggerKey }: HeartBurstLayerProps) {
+export function HeartBurstLayer({ triggerCount }: HeartBurstLayerProps) {
   const [hearts, setHearts] = useState<HeartParticle[]>([])
   const idRef = useRef(0)
-  const previousTrigger = useRef(triggerKey)
+  const previousTrigger = useRef(triggerCount)
 
   useEffect(() => {
-    if (triggerKey === previousTrigger.current) return
-    previousTrigger.current = triggerKey
-    if (triggerKey < 0) return
+    if (triggerCount <= previousTrigger.current) {
+      previousTrigger.current = triggerCount
+      return
+    }
+    previousTrigger.current = triggerCount
     setHearts((current) => [...current, ...createHeartBurst(() => idRef.current++)])
-  }, [triggerKey])
+  }, [triggerCount])
 
   const removeHeart = (id: number) => setHearts((current) => current.filter((heart) => heart.id !== id))
 
