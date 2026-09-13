@@ -61,7 +61,7 @@ ARRANGEMENTS = {
     "pop": SOURCE_PROGRAMS,
     "ballad": [0, 42, 46, 40, 73, None, None, 48, 71, 40, 40, 60, 60, 73, 46],
     "rock": [16, 34, 29, 30, None, None, None, 29, 65, 16, 16, 56, 61, None, 29],
-    "techno": [88, 38, None, 81, 72, 118, 118, 81, None, 25, 89, None, 61, 78, None],
+    "techno": [5, 38, None, 81, None, None, None, 81, None, 25, 89, None, None, None, None],
 }
 
 def instrument_label(track_id, voice):
@@ -79,7 +79,7 @@ GENRE_PRESETS = {
     "pop": ("Pop", 0, 0),
     "ballad": ("Ballad", .24, .01),
     "rock": ("Rock", .10, .20),
-    "techno": ("Techno", .20, .10),
+    "techno": ("Techno", .035, 0),
 }
 
 @dataclass
@@ -172,10 +172,17 @@ async def apply_genre(genre: str):
     _, reverb, drive=preset; state.genre=genre.lower()
     for i, track_id in enumerate(state.tracks):
         selected = ARRANGEMENTS[state.genre][i]
-        gain = 1.0 if state.genre == "pop" else (.9 if track_id == 'track-4' else (.65 if track_id in {'track-5','track-14'} else .8))
+        if state.genre == "pop": gain = 1.0
+        elif state.genre == "techno": gain = {
+            "track-2": .94, "track-4": 1.0, "track-10": .73,
+            "track-1": .82, "track-11": .32, "track-8": .45,
+        }.get(track_id, .5)
+        else: gain = .9 if track_id == 'track-4' else (.65 if track_id in {'track-5','track-14'} else .8)
         state.tracks[track_id].update(active=selected is not None,
             voice=SOURCE_PROGRAMS[i] if selected is None else selected,gain=gain)
-    sync_tracks(); send_osc("/mixer/style",[reverb,drive]); return response_state()
+    # Style arrives first so /midi/state rebuilds the Ppar with the right
+    # genre-only rhythm layer while playback is already running.
+    send_osc("/mixer/style",[reverb,drive,int(state.genre == "techno")]); sync_tracks(); return response_state()
 @app.put("/api/tracks/{track_id}")
 async def set_track(track_id: str, change: TrackChange):
     if track_id not in state.tracks: raise HTTPException(404,f"Unknown MIDI track: {track_id}")

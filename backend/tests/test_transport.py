@@ -48,6 +48,11 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(techno["track-2"]["voice_name"], "Synth bass 1")
         self.assertEqual(techno["track-4"]["voice_name"], "Saw wave")
         self.assertEqual(techno["track-8"]["voice_name"], "Saw wave")
+        self.assertEqual(techno["track-10"]["voice_name"], "TR-808 kit")
+        self.assertLess(techno["track-10"]["gain"], techno["track-4"]["gain"])
+        self.assertFalse(techno["track-6"]["active"])
+        self.assertFalse(techno["track-7"]["active"])
+        self.send.assert_any_call("/mixer/style", [.035, 0, 1])
 
     def test_manual_track_change_marks_arrangement_custom(self):
         asyncio.run(main.apply_genre("pop"))
@@ -81,7 +86,7 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(tracks["track-4"]["voice_name"], "Flute")
         self.assertEqual(tracks["track-6"]["voice_name"], "Synth drum")
         self.assertEqual(tracks["track-8"]["voice_name"], "Saw wave")
-        self.send.assert_any_call("/mixer/style", [0, 0])
+        self.send.assert_any_call("/mixer/style", [0, 0, 0])
 
     def test_word_timed_lyrics_are_loaded_from_the_mounted_song(self):
         with tempfile.TemporaryDirectory() as directory:

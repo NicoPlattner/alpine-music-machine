@@ -10,7 +10,7 @@ those events with the FluidR3 sampled SoundFont.
 | Pop | The MIDI's original programs, unchanged: Electric Piano 2, Synth Bass 2, Clean Guitar, Flute, Piccolo, Synth Drum, Saw Wave, Soprano Sax, Strings, Trumpet, Brass, Whistle, Muted Guitar, and its standard drum kit. |
 | Ballad | Grand piano, cello, harp, violin, flute, clarinet, strings, French horns, and brush kit. |
 | Rock | Drawbar organ, picked bass, overdriven/distorted guitars, alto sax, trumpet, brass, and power kit. |
-| Techno | Sampled General MIDI synth bass, pads, saw wave, synth drums, brass, electronic kit, and high accents. |
+| Techno | Clear electric-piano chords, saw melody, the song's own synth-bass line, and a quiet pad. A restrained TR-808 kick and clap replace the original drums, aligned to the first source kick. No extra bass loop or fast hats; minimal reverb and no master drive. |
 
 Pop has no omitted parts. Ballad, Rock, and Techno omit parts which would crowd
 their arrangement. The frontend lists the actual assigned instrument for every

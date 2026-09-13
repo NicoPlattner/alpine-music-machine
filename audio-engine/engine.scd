@@ -1,6 +1,6 @@
 // Each MIDI track becomes a Pbind; Ppar starts the enabled tracks together.
 (
-var tracks=IdentityDictionary.new, settings=IdentityDictionary.new, master, clock, player, soundfont, speed=1.0, playing=false, position=0.0, changedAt=0.0, duration=0.0, currentPosition, stopPlayer, startPlayer, patternFor, controlPatternFor;
+var tracks=IdentityDictionary.new, settings=IdentityDictionary.new, master, clock, player, soundfont, generation=0, speed=1.0, techno=0, playing=false, position=0.0, changedAt=0.0, duration=0.0, currentPosition, stopPlayer, startPlayer, patternFor, controlPatternFor, technoPatternFor;
 s.options.numOutputBusChannels=2; s.options.numInputBusChannels=2; s.options.sampleRate=48000; s.options.memSize=262144; s.options.maxNodes=2048; s.latency=0.12;
 s.waitForBoot({
  var secondsForTick={|tick| tick / ~midiDivision * (60 / ~midiBpm) };
@@ -13,9 +13,9 @@ s.waitForBoot({
  soundfont=NetAddr("127.0.0.1",57130);
  Event.addEventType(\soundfont,{
   var channel=~chan.asInteger, note=~midinote.asInteger, velocity=~velocity.asInteger,
-      program=~program.asInteger, sustain=~sustain;
+      program=~program.asInteger, sustain=~sustain, token=generation;
   soundfont.sendMsg("/soundfont/note-on",channel,note,velocity,program);
-  thisThread.clock.sched(sustain,{soundfont.sendMsg("/soundfont/note-off",channel,note);nil});
+  thisThread.clock.sched(sustain,{if(token==generation,{soundfont.sendMsg("/soundfont/note-off",channel,note)});nil});
  });
  Event.addEventType(\soundfontControl,{
   var channel=~chan.asInteger, command=~command.asInteger;
@@ -72,10 +72,42 @@ s.waitForBoot({
     \dur,Pseq(durations,1))
   ],1)})
  };
- stopPlayer={if(player.notNil,{player.stop;player=nil});soundfont.sendMsg("/soundfont/all-notes-off")};
- startPlayer={|at| var patterns=Array.new; stopPlayer.(); tracks.values.asArray.select({|track|settings[track[\id].asSymbol][\active]>0}).do({|track|patterns=patterns.add(controlPatternFor.(track,at)).add(patternFor.(track,at))}); master.set(\audible,patterns.notEmpty.binaryValue); if(patterns.notEmpty,{player=Ppar(patterns).play(clock,quant:0)})};
+ technoPatternFor={|fromSeconds|
+  var fromBeat=fromSeconds * ~midiBpm / 60;
+  var kicks=tracks['track-10'][\notes].select({|note|[35,36].includes(note[2])});
+  var origin=if(kicks.isEmpty,{0},{kicks[0][0]/~midiDivision});
+  var rhythmLine={|note, spacing, phase, velocity, sustain=0.08|
+   var wait=(origin+phase-fromBeat).mod(spacing);
+   Pseq([
+    Pbind(\type,\rest,\dur,Pseq([wait],1)),
+    Pbind(\type,\soundfont,\midinote,note,\velocity,Pfunc({(velocity*settings['track-10'][\gain]).round.clip(0,127)}),\program,25,
+     \chan,9,\sustain,sustain,\dur,spacing)
+   ],1)
+  };
+  Ppar([
+   // Replace the source kit, anchored to its first kick. The source bass
+   // alone supplies the harmony: no unrelated repeating bass underneath it.
+   rhythmLine.(36,1,0,106,0.12),
+   rhythmLine.(39,2,1,72,0.08)
+  ])
+ };
+ stopPlayer={generation=generation+1;if(player.notNil,{player.stop;player=nil});soundfont.sendMsg("/soundfont/all-notes-off")};
+ startPlayer={|at|
+  var patterns=Array.new;
+  stopPlayer.();
+  tracks.values.asArray.select({|track|settings[track[\id].asSymbol][\active]>0}).do({|track|
+   patterns=patterns.add(controlPatternFor.(track,at));
+   if((techno>0) and:{track[\channel]==9},{patterns=patterns.add(technoPatternFor.(at))},{patterns=patterns.add(patternFor.(track,at))});
+  });
+  master.set(\audible,patterns.notEmpty.binaryValue);
+  if(patterns.notEmpty,{player=Ppar(patterns).play(clock,quant:0)})
+ };
  OSCdef(\midiState,{|m|var index=1;while({index<m.size},{var id=m[index].asString.asSymbol;settings[id]=(active:m[index+1].asFloat.clip(0,1),voice:m[index+2].asFloat.clip(0,127),gain:m[index+3].asFloat.clip(0,1.5));index=index+4});if(playing,{var at=currentPosition.();stopPlayer.();startPlayer.(at)})},"/midi/state");
- OSCdef(\style,{|m|master.set(\reverb,m[1].asFloat,\drive,m[2].asFloat)},"/mixer/style");
+ OSCdef(\style,{|m|
+  var previous=techno;
+  master.set(\reverb,m[1].asFloat,\drive,m[2].asFloat);techno=(m[3]?0).asFloat.clip(0,1);
+  if(playing and:{previous!=techno},{var at=currentPosition.();stopPlayer.();startPlayer.(at)})
+ },"/mixer/style");
  OSCdef(\speed,{|m|position=currentPosition.();speed=m[1].asFloat.clip(0.5,1.5);clock.tempo=(~midiBpm/60)*speed;changedAt=SystemClock.seconds;if(playing,{startPlayer.(position)})},"/transport/speed");
  OSCdef(\play,{playing=true;changedAt=SystemClock.seconds;clock.tempo=(~midiBpm/60)*speed;startPlayer.(position);master.set(\audible,1)},"/transport/play");
  OSCdef(\pause,{position=currentPosition.();playing=false;stopPlayer.();master.set(\audible,0)},"/transport/pause");
