@@ -97,11 +97,11 @@ export function PerformanceStage({ song, onFinish }: PerformanceStageProps) {
 
   return (
     <main className="performance-stage">
-      <LeoVisualStage enabled={leoVisualEnabled} source={segmentedPerformerSource} maskSource={segmentationMaskSource} onDiagnosticsChange={setLeoDiagnostics} />
+      <LeoVisualStage enabled={leoVisualEnabled} source={segmentedPerformerSource} maskSource={segmentationMaskSource} audioElementRef={audioBackend.audioRef} onDiagnosticsChange={setLeoDiagnostics} />
       {performerSystemsEnabled && <PerformerLayer stream={stream} status={status} visualMode={performerVisualMode} onVideoSourceChange={setVideoSource} onSegmentedFrame={handleSegmentedFrame} />}
       {performerSystemsEnabled && <HandLandmarkDebugLayer hands={handTracking.hands} />}
       {performerSystemsEnabled && <MotionFeedbackLayer detected={handTracking.fingertip !== null} x={handTracking.fingertip?.x} y={handTracking.fingertip?.y} />}
-      <audio ref={audioBackend.audioRef} className="sr-only" src={audioBackend.liveAudioUrl} preload="auto" onPlaying={audioBackend.onAudioPlaying} onWaiting={audioBackend.onAudioWaiting} onStalled={audioBackend.onAudioWaiting} onError={audioBackend.onAudioError} />
+      <audio ref={audioBackend.audioRef} className="sr-only" crossOrigin="anonymous" src={audioBackend.liveAudioUrl} preload="auto" onPlaying={audioBackend.onAudioPlaying} onWaiting={audioBackend.onAudioWaiting} onStalled={audioBackend.onAudioWaiting} onError={audioBackend.onAudioError} />
       <LeoInterfaceLayer
         currentTime={audioBackend.estimatedPlaybackPosition} duration={audioBackend.state?.duration ?? 0}
         karaokeTimeline={karaokeTimeline} hasLyrics={lyrics.lines.length > 0}

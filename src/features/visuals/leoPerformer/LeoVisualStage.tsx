@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type RefObject } from 'react'
 import { useDeviceStore } from '../../device/deviceStore'
-import { LeoMicrophoneAudioController, type LeoAudioDriver, type LeoAudioSignal } from './leoAudio'
+import { LeoMicrophoneAudioController, LeoSongAudioController, type LeoAudioDriver, type LeoAudioSignal } from './leoAudio'
 import { LeoBackgroundLayer } from './LeoBackgroundLayer'
 import { LeoPerformerLayer, type LeoPerformerDiagnostics } from './LeoPerformerLayer'
 
@@ -8,19 +8,37 @@ interface Props {
   enabled: boolean
   source: HTMLCanvasElement | null
   maskSource: HTMLCanvasElement | null
+  audioElementRef: RefObject<HTMLAudioElement | null>
   onDiagnosticsChange: (diagnostics: LeoPerformerDiagnostics) => void
 }
 
-export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChange }: Props) {
+export function LeoVisualStage({ enabled, source, maskSource, audioElementRef, onDiagnosticsChange }: Props) {
   const microphoneDeviceId = useDeviceStore((state) => state.microphoneDeviceId)
   const microphoneEnabled = useDeviceStore((state) => state.microphoneEnabled)
-  const musicSignalRef = useRef<LeoAudioSignal>({ beat: 0, level: 0 })
   const microphoneSignalRef = useRef<LeoAudioSignal>({ beat: 0, level: 0 })
   const microphoneControllerRef = useRef<LeoMicrophoneAudioController | null>(null)
+  const songSignalRef = useRef<LeoAudioSignal>({ beat: 0, level: 0 })
+  const songControllerRef = useRef<LeoSongAudioController | null>(null)
   const driverRef = useRef<LeoAudioDriver>({
-    signal: musicSignalRef.current,
+    signal: songSignalRef.current,
     update: () => {},
   })
+
+  useEffect(() => {
+    const audioElement = audioElementRef.current
+    if (!enabled || !audioElement) return
+    const controller = new LeoSongAudioController(audioElement, songSignalRef.current)
+    songControllerRef.current = controller
+    void controller.start().catch((error) => {
+      console.warn("Leo's mountains couldn't connect to the song stream; the background will continue without it.", error)
+    })
+    return () => {
+      songControllerRef.current?.dispose()
+      songControllerRef.current = null
+      songSignalRef.current.beat = 0
+      songSignalRef.current.level = 0
+    }
+  }, [enabled, audioElementRef])
 
   useEffect(() => {
     if (!enabled || !microphoneEnabled) return
@@ -57,6 +75,7 @@ export function LeoVisualStage({ enabled, source, maskSource, onDiagnosticsChang
     let frame = 0
     const update = () => {
       microphoneControllerRef.current?.update()
+      songControllerRef.current?.update()
       frame = requestAnimationFrame(update)
     }
     frame = requestAnimationFrame(update)
