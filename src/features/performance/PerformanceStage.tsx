@@ -27,6 +27,9 @@ import './leoPerformanceStage.css'
 interface PerformanceStageProps { song: Song; onFinish: () => void }
 
 const SONG_END_TOLERANCE_SECONDS = 0.05
+// Presentation safety net: guarantee heart bursts at these times even if
+// nobody's singing well enough to earn a real ten-point streak.
+const GUARANTEED_HEART_BURST_SECONDS = [2, 40]
 
 export function PerformanceStage({ song, onFinish }: PerformanceStageProps) {
   const finishTriggeredRef = useRef(false)
@@ -62,6 +65,8 @@ export function PerformanceStage({ song, onFinish }: PerformanceStageProps) {
   // Reveal it only when Leo is disabled or has genuinely failed, avoiding a
   // temporary raw-looking performer during the model/WebGL warm-up.
   const performerVisualMode = leoVisualEnabled && leoDiagnostics.rendererStatus !== 'error' ? 'leo' : 'segmented'
+  const guaranteedHeartBursts = GUARANTEED_HEART_BURST_SECONDS.filter((seconds) => audioBackend.estimatedPlaybackPosition >= seconds).length
+  const heartsTriggerCount = karaokeScoring.heartsTriggerCount + guaranteedHeartBursts
 
   useEffect(() => {
     const confirmed = genreGesture.confirmedGesture
@@ -110,7 +115,7 @@ export function PerformanceStage({ song, onFinish }: PerformanceStageProps) {
         playing={audioBackend.state?.playing ?? false} transportPending={audioBackend.transportPending}
         backendConnected={audioBackend.connectionStatus === 'connected'} audioConnected={audioBackend.state?.audio_connected ?? false}
         audioStreamStatus={audioBackend.audioStreamStatus} backendError={audioBackend.error}
-        totalScore={karaokeScoring.totalScore} latestScoreEvent={karaokeScoring.lastEvent} heartsTriggerCount={karaokeScoring.heartsTriggerCount}
+        totalScore={karaokeScoring.totalScore} latestScoreEvent={karaokeScoring.lastEvent} heartsTriggerCount={heartsTriggerCount}
         onGenreChange={(genre) => { void audioBackend.selectGenre(genre, 'button') }}
         onPlayPause={() => { void (audioBackend.state?.playing ? audioBackend.pause() : audioBackend.play()) }}
         onRestart={() => { karaokeScoring.resetScore(); void audioBackend.restart() }} onEnableAudio={() => { void audioBackend.enableAudio() }}
